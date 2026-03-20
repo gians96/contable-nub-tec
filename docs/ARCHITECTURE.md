@@ -19,7 +19,7 @@ contable/
 │   │   ├── auth.vue              # Layout para login (sin sidebar)
 │   │   └── default.vue           # Layout principal (sidebar + topbar)
 │   ├── middleware/
-│   │   └── auth.global.ts        # Redirige a /login si no autenticado
+│   │   └── auth.global.ts        # Redirige a /login; reenvía Cookie en SSR ($fetch /api/auth/me)
 │   └── pages/                    # Páginas (file-based routing)
 │       ├── login.vue             # Inicio de sesión
 │       ├── index.vue             # Dashboard principal
@@ -107,14 +107,17 @@ contable/
       │ (client-side)      │  validators)
 ```
 
-## Flujo de Autenticación
+## Flujo de autenticación
 
 ```
-1. POST /api/auth/login  →  bcrypt.compare()  →  jwt.sign()  →  Set-Cookie: auth_token (httpOnly)
+1. POST /api/auth/login  →  bcrypt.compare()  →  jwt.sign()  →  Set-Cookie: auth_token (httpOnly, path /)
 2. Cada request /api/*   →  server/middleware/auth.ts  →  jwt.verify()  →  event.context.auth
-3. GET /api/auth/me      →  Retorna { id, username } del token
+3. GET /api/auth/me      →  Retorna { id, username } del token (lee cookie auth_token)
 4. POST /api/auth/logout →  Borra cookie auth_token
-5. Client middleware      →  useAuth().checkAuth()  →  Redirige a /login si no autenticado
+5. Middleware de rutas   →  app/middleware/auth.global.ts llama a /api/auth/me
+   - En el cliente, el navegador envía la cookie automáticamente.
+   - En SSR (p. ej. F5), $fetch no incluye cookies del cliente por defecto: se usa
+     useRequestHeaders(['cookie']) y se pasa como headers a $fetch para que la sesión persista al recargar.
 ```
 
 ## Flujo del Cálculo Tributario

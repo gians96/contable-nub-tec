@@ -6,12 +6,17 @@ Aplicación web para llevar el control de impuestos de una pequeña empresa bajo
 
 - **Dashboard** — Resumen visual del año con gráficos de ventas, compras, IGV e IR
 - **Comprobantes** — Registro de ventas y compras con cálculo automático de base imponible e IGV
-- **Resumen Mensual** — IGV neto e IR sugerido mes a mes, con registro de pagos efectuados
+- **Resumen Mensual** — IGV neto e IR sugerido mes a mes; referencia a casillas 0621; redondeo tipo SUNAT; columnas configurables; registro de pagos (IGV/IR) y total pagado
 - **Cierre Anual** — Estimación referencial del IR anual y casillas del Formulario Virtual 710
 - **Inventario** — Control de activos fijos con cálculo de depreciación en línea recta
 - **Configuración** — Datos de la empresa y parámetros tributarios por año
 - **Importar/Exportar** — Descarga en Excel/CSV e importación masiva de comprobantes
 - **Ayuda** — Guía tributaria educativa para MYPE
+- **Autenticación** — Sesión por cookie JWT (`httpOnly`); el middleware global reenvía cookies en SSR para que **recargar la página no cierre la sesión**
+
+## Documentación
+
+Documentación detallada en la carpeta [`docs/`](docs/README.md) (arquitectura, API, base de datos, bugs y [hoja de ruta](docs/ROADMAP.md)).
 
 ## Stack
 
@@ -80,7 +85,9 @@ app/
   pages/          → Páginas (dashboard, comprobantes, resumen, etc.)
   components/     → UI components (Modal, Badge, Alert, etc.)
   composables/    → Lógica reutilizable (auth, cálculos)
-  layouts/        → Layout con sidebar
+  layouts/        → Layout con sidebar; `auth.vue` para login centrado
+  middleware/     → `auth.global.ts` (cookie en SSR vía `useRequestHeaders`)
+  plugins/        → p. ej. `apexcharts.client.ts` (gráficos en cliente)
 server/
   api/            → API REST (vouchers, dashboard, settings, etc.)
   utils/          → Prisma client, cálculos tributarios, validadores

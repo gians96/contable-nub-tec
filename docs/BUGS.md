@@ -227,3 +227,30 @@ El seed del repo usa Bun directamente (sin `tsx`): en `package.json` y `prisma.c
 bun prisma/seed.ts
 ```
 Si antes usabas `bunx --bun prisma db seed` con `tsx` en el comando de seed, deja de usar `tsx` (Bun ejecuta TypeScript nativo).
+
+---
+
+## BUG-008: Recargar la página redirige a `/login` aunque la sesión siga válida
+
+| Campo | Detalle |
+|-------|---------|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Alto |
+| **Afecta** | `app/middleware/auth.global.ts`, cualquier ruta protegida |
+| **Fecha** | Marzo 2026 |
+
+### Síntoma
+Tras iniciar sesión, un **refresh completo (F5)** o la primera carga en SSR enviaba al usuario a `/login` aunque la cookie `auth_token` existiera en el navegador.
+
+### Causa
+El middleware global ejecuta `$fetch('/api/auth/me')` también **en el servidor**. En ese contexto, `$fetch` no reenvía automáticamente el header `Cookie` del request original del cliente, por lo que `me.get.ts` no veía el token y respondía 401.
+
+### Solución
+Pasar los headers del request entrante al `$fetch` interno:
+
+```ts
+const headers = useRequestHeaders(['cookie'])
+await $fetch('/api/auth/me', { headers })
+```
+
+Ver [ARCHITECTURE.md](ARCHITECTURE.md) (flujo de autenticación).
