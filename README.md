@@ -83,11 +83,10 @@ bun run .output/server/index.mjs
 app/
   assets/css/     → `main.css` (Tailwind v4: @import, @theme, componentes de formulario)
   pages/          → Páginas (dashboard, comprobantes, resumen, etc.)
-  components/     → UI components (Modal, Badge, Alert, etc.)
+  components/     → UI (Modal, Badge, Alert, `DashboardCharts.vue` lazy + ApexCharts)
   composables/    → Lógica reutilizable (auth, cálculos)
   layouts/        → Layout con sidebar; `auth.vue` para login centrado
   middleware/     → `auth.global.ts` (cookie en SSR vía `useRequestHeaders`)
-  plugins/        → p. ej. `apexcharts.client.ts` (gráficos en cliente)
 server/
   api/            → API REST (vouchers, dashboard, settings, etc.)
   utils/          → Prisma client, cálculos tributarios, validadores
@@ -99,6 +98,7 @@ prisma/
 
 ## Notas
 
+- **IGV:** el **crédito fiscal** (saldo a favor) ya se arrastraba mes a mes aunque no hubiera comprobantes. Desde **2026**, la app acumula además una **deuda referencial** si el IGV pagado es menor al sugerido (sin arrastrar deuda de años anteriores a 2026). No sustituye el estado de cuenta SUNAT ni los intereses moratorios.
 - Los cálculos de IR y IGV son **referenciales**. El cálculo oficial lo realiza SUNAT y/o tu contador.
 - RMT: 10% hasta 15 UIT, 29.5% sobre el exceso. Pago a cuenta mensual: 1%.
 - IGV estándar: 18% sobre el valor de venta.

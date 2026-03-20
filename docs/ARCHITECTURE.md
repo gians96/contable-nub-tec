@@ -143,7 +143,14 @@ Comprobante registrado
 │ IGV Ventas - IGV Compras (crédito) │
 │ + Saldo mes anterior               │
 │ Si neto < 0 → saldo a favor        │
-│ Si neto > 0 → pago IGV             │
+│ Si neto > 0 → IGV período a pagar │
+└─────────┬───────────────────────────┘
+          │
+          ▼  (resumen mensual, año ≥ 2026)
+┌─────────────────────────────────────┐
+│ Deuda IGV referencial (app)        │
+│ inicio + IGV período − pagoIGV     │
+│ → cierre; ene 2026 sin deuda 2025  │
 └─────────┬───────────────────────────┘
           │
           ▼

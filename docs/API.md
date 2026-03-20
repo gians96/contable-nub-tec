@@ -70,7 +70,15 @@ Datos para el dashboard: totales del mes actual + datos para 4 gráficos.
 ## Resumen Mensual
 
 ### `GET /api/monthly-summary`
-Calcula los 12 meses del año con arrastre de saldo IGV.
+Calcula los 12 meses del año con arrastre de **saldo a favor** (crédito fiscal) mes a mes, incluso en meses sin comprobantes.
+
+**Respuesta (campos relevantes):**
+- `igvDebtAccrualFromYear` — año desde el cual aplica la lógica de deuda acumulada (2026).
+- `igvDebtAccrualActive` — `true` si `year >= igvDebtAccrualFromYear`.
+- Por cada mes en `summaries`:
+  - `igvNetoMes` — IGV resultante del **período** (casilla 140 del mes; débito − crédito ± saldo a favor anterior).
+  - `igvSugeridoPagoTotal` — desde 2026: deuda IGV arrastrada al inicio del mes + IGV a pagar del período (sugerencia antes de registrar pago). Años anteriores coincide con el IGV del período si aplica.
+  - `igvDeudaInicioMes` / `igvDeudaCierreMes` — deuda por IGV no pagado (solo referencial en app); en años &lt; 2026 van en 0. Enero 2026 no arrastra deuda de 2025; entre años ≥ 2026 la deuda de diciembre se abre en enero del año siguiente.
 
 **Query params:** `year` (default: año actual)
 

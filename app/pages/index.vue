@@ -41,33 +41,15 @@
           tooltip="Suma de la base imponible de todas tus ventas del año" />
       </div>
 
-      <!-- Charts -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="card">
-          <h3 class="text-sm font-medium text-gray-500 mb-4">Ventas mensuales</h3>
-          <ClientOnly>
-            <apexchart type="bar" height="280" :options="ventasChartOptions" :series="ventasSeries" />
-          </ClientOnly>
-        </div>
-        <div class="card">
-          <h3 class="text-sm font-medium text-gray-500 mb-4">Compras mensuales</h3>
-          <ClientOnly>
-            <apexchart type="bar" height="280" :options="comprasChartOptions" :series="comprasSeries" />
-          </ClientOnly>
-        </div>
-        <div class="card">
-          <h3 class="text-sm font-medium text-gray-500 mb-4">IGV Neto por mes</h3>
-          <ClientOnly>
-            <apexchart type="line" height="280" :options="igvChartOptions" :series="igvSeries" />
-          </ClientOnly>
-        </div>
-        <div class="card">
-          <h3 class="text-sm font-medium text-gray-500 mb-4">IR Mensual sugerido</h3>
-          <ClientOnly>
-            <apexchart type="area" height="280" :options="irChartOptions" :series="irSeries" />
-          </ClientOnly>
-        </div>
-      </div>
+      <!-- Gráficos: Lazy* carga ApexCharts en chunk aparte (mejor para Vercel / LCP) -->
+      <ClientOnly>
+        <LazyDashboardCharts v-if="data.charts?.length" :charts="data.charts" />
+        <template #fallback>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div v-for="i in 4" :key="i" class="card h-[320px] animate-pulse bg-gray-100 rounded-xl" />
+          </div>
+        </template>
+      </ClientOnly>
 
       <!-- Nota informativa -->
       <div class="mt-6">
@@ -81,8 +63,6 @@
 </template>
 
 <script setup lang="ts">
-const { MESES } = useTaxCalculations()
-
 const currentYear = new Date().getFullYear()
 const selectedYear = ref(currentYear)
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
@@ -92,57 +72,4 @@ const { data, pending, refresh } = useFetch('/api/dashboard', {
 })
 
 watch(selectedYear, () => refresh())
-
-const mesesLabels = MESES.slice(1)
-
-const ventasSeries = computed(() => [{
-  name: 'Ventas',
-  data: data.value?.charts.map((c: any) => c.ventas) || [],
-}])
-
-const comprasSeries = computed(() => [{
-  name: 'Compras',
-  data: data.value?.charts.map((c: any) => c.compras) || [],
-}])
-
-const igvSeries = computed(() => [{
-  name: 'IGV Neto',
-  data: data.value?.charts.map((c: any) => c.igvNeto) || [],
-}])
-
-const irSeries = computed(() => [{
-  name: 'IR Sugerido',
-  data: data.value?.charts.map((c: any) => c.irSugerido) || [],
-}])
-
-const baseChartOptions = {
-  chart: { toolbar: { show: false }, fontFamily: 'inherit' },
-  xaxis: { categories: mesesLabels },
-  yaxis: { labels: { formatter: (v: number) => `S/ ${Math.round(v)}` } },
-  tooltip: { y: { formatter: (v: number) => `S/ ${v.toFixed(2)}` } },
-  dataLabels: { enabled: false },
-}
-
-const ventasChartOptions = {
-  ...baseChartOptions,
-  colors: ['#10B981'],
-}
-
-const comprasChartOptions = {
-  ...baseChartOptions,
-  colors: ['#EF4444'],
-}
-
-const igvChartOptions = {
-  ...baseChartOptions,
-  colors: ['#3B82F6'],
-  stroke: { width: 3, curve: 'smooth' as const },
-}
-
-const irChartOptions = {
-  ...baseChartOptions,
-  colors: ['#F59E0B'],
-  stroke: { width: 2, curve: 'smooth' as const },
-  fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
-}
 </script>

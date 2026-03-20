@@ -13,7 +13,8 @@
     </div>
 
     <UiAlert type="info" class="mb-4">
-      <strong>IGV:</strong> débito fiscal (ventas) − crédito fiscal (compras con crédito fiscal). Saldo a favor se arrastra al mes siguiente.<br>
+      <strong>IGV (período):</strong> débito fiscal (ventas) − crédito fiscal (compras con crédito fiscal). El <strong>saldo a favor</strong> (crédito no usado) se arrastra mes a mes aunque no haya movimiento en el mes.<br>
+      <strong>Desde {{ igvDebtFromYear }}:</strong> si registras menos IGV pagado que lo sugerido, la <strong>deuda referencial</strong> se acumula al mes siguiente (la app no arrastra deuda de años anteriores a {{ igvDebtFromYear }}). En SUNAT el no pago genera deuda e intereses aparte del PDT; esto es para tu control interno.<br>
       <strong>IR:</strong> 1% de ventas netas (pago a cuenta RMT).
     </UiAlert>
 
@@ -150,6 +151,14 @@
                   </span>
                 </template>
 
+                <template v-else-if="col.key === 'igvDeudaCierreMes'">
+                  <span
+                    :class="m.igvDeudaCierreMes > 0 ? 'text-orange-800 font-medium' : 'text-gray-300'"
+                    :title="year >= igvDebtFromYear ? 'Deuda IGV referencial tras el mes (no pagado acumulado)' : ''">
+                    {{ m.igvDeudaCierreMes > 0 ? `S/ ${fmt(m.igvDeudaCierreMes)}` : '-' }}
+                  </span>
+                </template>
+
                 <!-- Columnas de dinero estándar -->
                 <template v-else>
                   <span :class="(m as any)[col.key] > 0 ? col.textColor : 'text-gray-300'">
@@ -196,6 +205,11 @@
                 <template v-else-if="col.key === 'pagoTotalEfectuado'">
                   <span class="text-green-800 font-semibold">S/ {{ fmt(totales.pagoTotalEfectuado) }}</span>
                 </template>
+                <template v-else-if="col.key === 'igvDeudaCierreMes'">
+                  <span class="text-orange-800" title="Saldo de deuda IGV al cierre de diciembre (referencial)">
+                    {{ totales.igvDeudaCierreDic > 0 ? `S/ ${fmt(totales.igvDeudaCierreDic)}` : '—' }}
+                  </span>
+                </template>
                 <template v-else>
                   <span :class="col.textColor">S/ {{ fmt((totales as any)[col.key] ?? 0) }}</span>
                 </template>
@@ -224,6 +238,8 @@ const { data, pending, refresh } = useFetch('/api/monthly-summary', {
   query: computed(() => ({ year: year.value })),
 })
 
+const igvDebtFromYear = computed(() => Number(data.value?.igvDebtAccrualFromYear ?? 2026))
+
 /** Normaliza la respuesta de la API al modelo que usa la tabla */
 const meses = computed(() => {
   const raw = data.value?.summaries ?? data.value?.months ?? []
@@ -251,6 +267,8 @@ const meses = computed(() => {
       pagoIgvEfectuado:      Number(r.pagoIgvEfectuado ?? 0),
       pagoIrEfectuado:       Number(r.pagoIrEfectuado ?? 0),
       pagoTotalEfectuado:    Number(r.pagoIgvEfectuado ?? 0) + Number(r.pagoIrEfectuado ?? 0),
+      igvDeudaCierreMes:     Number(r.igvDeudaCierreMes ?? 0),
+      igvSugeridoPagoTotal:  Number(r.igvSugeridoPagoTotal ?? 0),
     }
   })
 })
@@ -269,6 +287,7 @@ const totales = computed(() => {
     pagoIgv:            m.reduce((s: number, x: any) => s + x.pagoIgvEfectuado, 0),
     pagoIr:             m.reduce((s: number, x: any) => s + x.pagoIrEfectuado, 0),
     pagoTotalEfectuado: m.reduce((s: number, x: any) => s + x.pagoTotalEfectuado, 0),
+    igvDeudaCierreDic: m.length ? Number(m[m.length - 1].igvDeudaCierreMes ?? 0) : 0,
   }
 })
 
@@ -339,6 +358,14 @@ const allColumns = [
     textColor: 'text-blue-700',
   },
   {
+    key: 'igvDeudaCierreMes',
+    label: 'IGV deuda acum.',
+    casilla: null,
+    thBg: 'bg-orange-50',
+    tdBg: 'bg-orange-50/50',
+    textColor: 'text-orange-800 font-medium',
+  },
+  {
     key: 'irSugerido',
     label: 'IR Sugerido',
     casilla: '302',
@@ -397,8 +424,9 @@ const editPayments = reactive({ pagoIgvEfectuado: 0, pagoIrEfectuado: 0 })
 
 function startEdit(m: any) {
   editingMonth.value = m.month
-  editPayments.pagoIgvEfectuado = m.pagoIgvEfectuado || Math.round(m.igvNeto > 0 ? m.igvNeto : 0)
-  editPayments.pagoIrEfectuado  = m.pagoIrEfectuado  || Math.round(m.irSugerido)
+  const sugeridoIgv = Math.round(Number(m.igvSugeridoPagoTotal ?? 0))
+  editPayments.pagoIgvEfectuado = m.pagoIgvEfectuado || sugeridoIgv
+  editPayments.pagoIrEfectuado = m.pagoIrEfectuado || Math.round(m.irSugerido)
 }
 
 async function savePayment(month: number) {

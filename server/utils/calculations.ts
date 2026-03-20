@@ -183,9 +183,10 @@ export interface IGVNetoResult {
 }
 
 /**
- * Calcula el IGV neto del mes considerando saldo anterior.
+ * Calcula el IGV neto del mes considerando saldo anterior (crédito fiscal).
  * Si hay saldo a favor anterior, se descuenta del IGV neto.
- * Si el resultado es negativo, se arrastra como saldo a favor.
+ * Si el resultado es negativo, se arrastra como saldo a favor (meses sin ventas siguen arrastrando el crédito).
+ * La deuda por IGV no pagado se acumula aparte en la API (desde 2026), ver `monthlyIgvDebt.ts`.
  */
 export function calcularIGVNetoMes(
   igvVentas: number,

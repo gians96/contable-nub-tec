@@ -95,3 +95,10 @@ Prisma 7 no tiene motor binario Rust. Requiere un driver adapter JavaScript (`@p
 
 ### Output personalizado
 El cliente Prisma se genera en `generated/prisma/` (no en `node_modules/@prisma/client`). Esto resuelve problemas de bundling con Nitro en Windows.
+
+### Build en Vercel (avisos de Vite / Tailwind)
+Si en los logs ves **WARN** de:
+- **chunks > 500 kB** — el proyecto ya separa ApexCharts en su chunk y sube `chunkSizeWarningLimit` en `nuxt.config.ts`. No es un fallo de despliegue.
+- **@tailwindcss/vite / sourcemap incorrect** — aviso conocido del plugin con Vite 7; `build.sourcemap: false` reduce ruido. **No impide** que el build termine con éxito.
+
+Mientras el comando termine en **Build complete** y exit code 0, Vercel puede publicar la app. Si el deploy **falla**, suele ser otra causa (variables `DATABASE_URL` / `AUTH_SECRET`, Prisma en serverless, etc.).

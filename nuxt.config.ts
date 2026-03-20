@@ -33,12 +33,27 @@ function fixWindowsDriveLetterImports(code: string) {
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV === 'development' },
 
   css: ['~/assets/css/main.css'],
 
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      // ApexCharts minificado ~1.1MB en su propio chunk; el umbral por defecto (500) siempre avisa.
+      chunkSizeWarningLimit: 1600,
+      // Evita avisos del plugin @tailwindcss/vite sobre sourcemaps incorrectos en build SSR/cliente.
+      sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('apexcharts') || id.includes('vue3-apexcharts')) return 'apexcharts'
+            }
+          },
+        },
+      },
+    },
   },
 
   runtimeConfig: {
