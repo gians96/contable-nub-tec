@@ -4,11 +4,11 @@
   "private": true,
   "packageManager": "bun@1.2.19",
   "scripts": {
-    "build": "nuxt build",
+    "build": "prisma generate && nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "prisma generate && nuxt prepare"
   },
   "prisma": {
     "seed": "bun prisma/seed.ts"

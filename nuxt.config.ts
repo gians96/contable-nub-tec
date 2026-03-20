@@ -76,15 +76,12 @@ export default defineNuxtConfig({
     experimental: {
       wasm: true,
     },
-    // Prisma: bundling breaks `.prisma/client` resolution.
-    // xlsx: Rollup on Windows can emit `import from 'C:\...'` (invalid ESM); keep it external.
+    // Prisma + adapter: externos (no empaquetar). NO listar rutas en traceInclude: @vercel/nft exige que existan
+    // en disco; con Bun linker aislado fallaba. Usar bunfig.toml + `bun install --linker hoisted` en Vercel.
+    // xlsx: Rollup en Windows puede emitir imports con ruta absoluta; mantener external.
     externals: {
       external: ['@prisma/client', '@prisma/adapter-mariadb', 'xlsx'],
-      traceInclude: [
-        'node_modules/@prisma/client',
-        'node_modules/.prisma/client',
-        'node_modules/xlsx',
-      ],
+      traceInclude: ['node_modules/xlsx'],
     },
     hooks: {
       'rollup:before'(_nitro, config) {

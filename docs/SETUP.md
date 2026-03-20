@@ -102,3 +102,14 @@ Si en los logs ves **WARN** de:
 - **@tailwindcss/vite / sourcemap incorrect** — aviso conocido del plugin con Vite 7; `build.sourcemap: false` reduce ruido. **No impide** que el build termine con éxito.
 
 Mientras el comando termine en **Build complete** y exit code 0, Vercel puede publicar la app. Si el deploy **falla**, suele ser otra causa (variables `DATABASE_URL` / `AUTH_SECRET`, Prisma en serverless, etc.).
+
+### Vercel + Prisma + Bun (`@prisma/client does not exist`)
+El trazado de dependencias de Nitro (`@vercel/nft`) busca paquetes bajo `node_modules/`. Con el **linker aislado** de Bun a veces no existe `node_modules/@prisma/client` y el build falla.
+
+En este repo:
+- **`bunfig.toml`** → `linker = "hoisted"` (instalación tipo npm).
+- **`vercel.json`** → `installCommand`: `bun install --linker hoisted`.
+- **`package.json`** → `postinstall` y `build` ejecutan **`prisma generate`** antes de Nuxt.
+- **`nuxt.config.ts`** → sin `traceInclude` de rutas Prisma (evita forzar rutas que NFT no resuelve).
+
+En el proyecto de Vercel define **`DATABASE_URL`** y **`AUTH_SECRET`** en *Environment Variables* (la app en runtime necesita la URL real; `prisma.config` usa un placeholder solo si falta en el paso de generate).

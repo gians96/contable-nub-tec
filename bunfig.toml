@@ -1,0 +1,5 @@
+# Instalación tipo npm (node_modules real) para que @vercel/nft encuentre @prisma/client al trazar el bundle de Nitro.
+# Con el linker aislado por defecto, Bun deja paquetes bajo .bun/ y Nitro falla en Vercel con:
+# "File .../node_modules/@prisma/client does not exist"
+[install]
+linker = "hoisted"
