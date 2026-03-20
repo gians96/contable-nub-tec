@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────
+
+enum TipoMovimiento {
+  VENTA
+  COMPRA
+}
+
+enum TipoComprobante {
+  FACTURA
+  BOLETA
+  NOTA_CREDITO
+  NOTA_DEBITO
+  RECIBO_HONORARIOS
+  TICKET
+  OTRO
+}
+
+enum DestinoTributario {
+  VENTA
+  COSTO_VENTAS
+  GASTO_ADMIN
+  GASTO_VENTA
+  ACTIVO_FIJO
+  NO_DEDUCIBLE
+}
+
+enum Subcategoria {
+  SAAS
+  FACTURACION_ELECTRONICA
+  HOSTING
+  SOFTWARE
+  CAMARAS
+  PRODUCTO
+  FLETE
+  MOVILIDAD
+  SERVIDOR
+  INTERNET
+  UTILES
+  EQUIPO_PRUEBAS
+  LICENCIA
+  DOMINIO
+  OTRO
+}
+
+enum MedioPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  DEPOSITO
+  CHEQUE
+  OTRO
+}
+
+enum EstadoPago {
+  PAGADO
+  PENDIENTE
+  PARCIAL
+}
+
+enum TipoDocumento {
+  RUC
+  DNI
+  CE
+  OTRO
+}
+
+enum CategoriaInventario {
+  MERCADERIA
+  SERVIDOR
+  TICKETERA
+  LECTOR
+  LAPTOP
+  IMPRESORA
+  CAMARA
+  OTRO_EQUIPO
+}
+
+enum EstadoCierre {
+  EN_USO
+  VENDIDO
+  DADO_BAJA
+  INVENTARIO_FINAL
+}
+
+// ─── TABLAS ─────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
+
+model CompanySettings {
+  id               Int      @id @default(autoincrement())
+  ruc              String   @default("")
+  razonSocial      String   @default("")
+  nombreComercial  String?
+  direccion        String?
+  moneda           String   @default("PEN")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+model TaxParameter {
+  id                  Int      @id @default(autoincrement())
+  year                Int      @unique
+  igvPercent          Decimal  @default(18.00) @db.Decimal(5, 2)
+  irMonthlyPercent    Decimal  @default(1.00) @db.Decimal(5, 2)
+  uit                 Decimal  @db.Decimal(10, 2)
+  irAnnualTramo1Limit Decimal  @default(15) @db.Decimal(5, 2)
+  irAnnualTramo1Rate  Decimal  @default(10.00) @db.Decimal(5, 2)
+  irAnnualTramo2Rate  Decimal  @default(29.50) @db.Decimal(5, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("tax_parameters")
+}
+
+model Party {
+  id               Int           @id @default(autoincrement())
+  tipoDocumento    TipoDocumento @default(RUC)
+  numeroDocumento  String
+  razonSocial      String
+  direccion        String?
+  email            String?
+  telefono         String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  vouchers Voucher[]
+
+  @@unique([tipoDocumento, numeroDocumento])
+  @@map("parties")
+}
+
+model Voucher {
+  id                Int               @id @default(autoincrement())
+  year              Int
+  month             Int
+  fecha             DateTime
+  tipoMovimiento    TipoMovimiento
+  tipoComprobante   TipoComprobante   @default(FACTURA)
+  serie             String?
+  numero            String?
+  partyId           Int?
+  party             Party?            @relation(fields: [partyId], references: [id])
+  rucDni            String?
+  razonSocial       String?
+  afectoIgv         Boolean           @default(true)
+  importeTotal      Decimal           @db.Decimal(12, 2)
+  baseImponible     Decimal           @db.Decimal(12, 2)
+  igv               Decimal           @db.Decimal(12, 2)
+  modoManual        Boolean           @default(false)
+  medioPago         MedioPago         @default(TRANSFERENCIA)
+  estadoPago        EstadoPago        @default(PAGADO)
+  destinoTributario DestinoTributario
+  subcategoria      Subcategoria      @default(OTRO)
+  deducibleIr       Boolean           @default(true)
+  creditoFiscalIgv  Boolean           @default(true)
+  inventarioFinal   Boolean           @default(false)
+  activoFijo        Boolean           @default(false)
+  vidaUtilMeses     Int?
+  observacion       String?           @db.Text
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  inventoryAssets InventoryAsset[]
+
+  @@index([year, month])
+  @@index([tipoMovimiento])
+  @@index([destinoTributario])
+  @@map("vouchers")
+}
+
+model InventoryAsset {
+  id                Int                 @id @default(autoincrement())
+  voucherId         Int?
+  voucher           Voucher?            @relation(fields: [voucherId], references: [id])
+  year              Int
+  fecha             DateTime
+  comprobante       String?
+  descripcion       String
+  categoria         CategoriaInventario @default(OTRO_EQUIPO)
+  base              Decimal             @db.Decimal(12, 2)
+  igv               Decimal             @db.Decimal(12, 2)
+  total             Decimal             @db.Decimal(12, 2)
+  destinoTributario DestinoTributario   @default(GASTO_ADMIN)
+  estadoCierre      EstadoCierre        @default(EN_USO)
+  vidaUtilMeses     Int?
+  depreciacionMensual Decimal?          @db.Decimal(12, 2)
+  observaciones     String?             @db.Text
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([year])
+  @@map("inventory_assets")
+}
+
+model MonthlySummary {
+  id                      Int      @id @default(autoincrement())
+  year                    Int
+  month                   Int
+  baseVentas              Decimal  @default(0) @db.Decimal(12, 2)
+  igvVentas               Decimal  @default(0) @db.Decimal(12, 2)
+  totalVentas             Decimal  @default(0) @db.Decimal(12, 2)
+  baseComprasCreditoFiscal Decimal @default(0) @db.Decimal(12, 2)
+  igvComprasCreditoFiscal Decimal  @default(0) @db.Decimal(12, 2)
+  costoVentas             Decimal  @default(0) @db.Decimal(12, 2)
+  gastoAdministracion     Decimal  @default(0) @db.Decimal(12, 2)
+  gastoVentas             Decimal  @default(0) @db.Decimal(12, 2)
+  activoFijo              Decimal  @default(0) @db.Decimal(12, 2)
+  comprasNoDeducibles     Decimal  @default(0) @db.Decimal(12, 2)
+  igvNetoMes              Decimal  @default(0) @db.Decimal(12, 2)
+  saldoIgvMesAnterior     Decimal  @default(0) @db.Decimal(12, 2)
+  saldoIgvMes             Decimal  @default(0) @db.Decimal(12, 2)
+  pagoIrSugerido          Decimal  @default(0) @db.Decimal(12, 2)
+  pagoIrEfectuado         Decimal  @default(0) @db.Decimal(12, 2)
+  pagoIgvEfectuado        Decimal  @default(0) @db.Decimal(12, 2)
+  pagoTotalSugerido       Decimal  @default(0) @db.Decimal(12, 2)
+  pagoTotalEfectuado      Decimal  @default(0) @db.Decimal(12, 2)
+  observaciones           String?  @db.Text
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([year, month])
+  @@map("monthly_summaries")
+}
+
+model AnnualClosure {
+  id                    Int      @id @default(autoincrement())
+  year                  Int      @unique
+  ventasNetas           Decimal  @default(0) @db.Decimal(12, 2)
+  descuentos            Decimal  @default(0) @db.Decimal(12, 2)
+  costoVentas           Decimal  @default(0) @db.Decimal(12, 2)
+  gastosVentas          Decimal  @default(0) @db.Decimal(12, 2)
+  gastosAdministracion  Decimal  @default(0) @db.Decimal(12, 2)
+  otrosIngresos         Decimal  @default(0) @db.Decimal(12, 2)
+  otrosGastos           Decimal  @default(0) @db.Decimal(12, 2)
+  utilidadContable      Decimal  @default(0) @db.Decimal(12, 2)
+  adiciones             Decimal  @default(0) @db.Decimal(12, 2)
+  deducciones           Decimal  @default(0) @db.Decimal(12, 2)
+  rentaNetaImponible    Decimal  @default(0) @db.Decimal(12, 2)
+  pagosCuentaAcumulados Decimal  @default(0) @db.Decimal(12, 2)
+  retenciones           Decimal  @default(0) @db.Decimal(12, 2)
+  saldoFavorAnterior    Decimal  @default(0) @db.Decimal(12, 2)
+  impuestoAnual         Decimal  @default(0) @db.Decimal(12, 2)
+  saldoPorPagar         Decimal  @default(0) @db.Decimal(12, 2)
+  saldoAFavor           Decimal  @default(0) @db.Decimal(12, 2)
+  observaciones         String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("annual_closures")
+}
