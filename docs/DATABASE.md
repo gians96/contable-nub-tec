@@ -213,6 +213,14 @@ Resumen tributario mensual (1 por mes/año).
 | pagoIgvEfectuado | DECIMAL | Pago real de IGV |
 | pagoTotalSugerido | DECIMAL | Sugerido total (IGV + IR) |
 | pagoTotalEfectuado | DECIMAL | Real total pagado |
+| pagoConDetraccion | DECIMAL | Parte de lo pagado que salió de la cuenta de detracciones |
+
+**Sobre `pagoConDetraccion`:** no es un pago adicional —ya está dentro de
+`pagoIgvEfectuado` y `pagoIrEfectuado`—, solo dice de dónde salió el dinero. Es
+lo que permite llevar el saldo del fondo del Banco de la Nación, que abona con
+las detracciones de las **ventas** (las de compras van a la cuenta del
+proveedor) y carga con lo que se usa para pagar tributos. El saldo no se guarda:
+se calcula sumando ambas series, así que nunca puede quedar desfasado.
 
 ### `annual_closures`
 Cierre anual (1 por año).

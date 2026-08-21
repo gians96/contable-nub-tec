@@ -184,9 +184,19 @@ Registra pagos efectuados (IGV e IR) para un mes.
   "year": 2025,
   "month": 3,
   "pagoIgvEfectuado": 1500.00,
-  "pagoIrEfectuado": 800.00
+  "pagoIrEfectuado": 800.00,
+  "pagoConDetraccion": 900.00
 }
 ```
+
+`pagoConDetraccion` es la parte de ese pago que salió de la cuenta de
+detracciones del Banco de la Nación. No es un importe aparte: se rechaza con
+400 si supera `pagoIgvEfectuado + pagoIrEfectuado`.
+
+`GET /api/monthly-summary` devuelve, además de cada mes,
+`detraccionFondoApertura` (saldo heredado de años anteriores) y
+`detraccionFondoSaldo` (saldo al cerrar el año consultado); y por mes,
+`detraccionFondoInicio`, `detraccionFondoCierre` y `pagoConDetraccion`.
 
 ---
 

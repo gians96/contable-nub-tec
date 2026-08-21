@@ -27,6 +27,36 @@
       <UiAlert v-for="(a, i) in alertasRegimen" :key="i" type="warning">{{ a }}</UiAlert>
     </div>
 
+    <!-- Fondo de detracciones: solo aparece si la empresa tiene detracciones -->
+    <div
+      v-if="hayDetraccion"
+      class="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/40 dark:bg-amber-500/10"
+    >
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">
+          Fondo de detracciones — Banco de la Nación
+        </p>
+        <p class="mt-0.5 text-xs text-amber-800 dark:text-amber-200/90">
+          Abonan las detracciones de tus <strong>ventas</strong>; las de compras van a la cuenta del
+          proveedor y no suman aquí. Solo se puede gastar en pagar tributos: al registrar un pago,
+          anota en «Pagado c/ detracc.» cuánto salió de esta cuenta.
+        </p>
+      </div>
+      <div class="text-right">
+        <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200/80">
+          Saldo disponible
+        </p>
+        <p class="font-mono text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-100">
+          S/ {{ fmt(fondoDetraccionSaldo) }}
+        </p>
+        <p v-if="fondoDetraccionApertura" class="text-[11px] text-amber-800 dark:text-amber-200/80">
+          incluye S/ {{ fmt(fondoDetraccionApertura) }} de años anteriores
+        </p>
+      </div>
+    </div>
+
+    <UiAlert v-if="errorPago" type="warning" class="mb-4">{{ errorPago }}</UiAlert>
+
     <div class="card overflow-hidden">
       <!-- Barra superior de la tabla -->
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -153,6 +183,33 @@
                   </span>
                 </template>
 
+                <!-- Parte del pago que salió del fondo de detracciones -->
+                <template v-else-if="col.key === 'pagoConDetraccion'">
+                  <div v-if="editingMonth === m.month" class="flex items-center justify-end gap-1">
+                    <input v-model.number="editPayments.pagoConDetraccion"
+                      type="number" step="1" min="0" :max="fondoDisponibleAlEditar"
+                      class="input-field text-right w-24 py-1 text-sm" />
+                    <button type="button"
+                      class="rounded px-1.5 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-500/15"
+                      :title="`Usar el fondo hasta cubrir el pago (disponible S/ ${fmt(fondoDisponibleAlEditar)})`"
+                      @click="usarTodoElFondo">
+                      máx
+                    </button>
+                  </div>
+                  <span v-else :class="m.pagoConDetraccion ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-content-muted/50'">
+                    {{ m.pagoConDetraccion ? `S/ ${fmt(m.pagoConDetraccion)}` : '-' }}
+                  </span>
+                </template>
+
+                <!-- Saldo del fondo tras el mes -->
+                <template v-else-if="col.key === 'detraccionFondoCierre'">
+                  <span
+                    :class="m.detraccionFondoCierre > 0 ? col.textColor : 'text-content-muted/50'"
+                    title="Saldo en la cuenta de detracciones del Banco de la Nación al cerrar el mes">
+                    {{ m.detraccionFondoCierre !== 0 ? `S/ ${fmt(m.detraccionFondoCierre)}` : '-' }}
+                  </span>
+                </template>
+
                 <!-- Pago total (suma IGV + IR efectuados, solo lectura) -->
                 <template v-else-if="col.key === 'pagoTotalEfectuado'">
                   <span :class="m.pagoTotalEfectuado ? 'text-green-800 dark:text-green-200 font-semibold' : 'text-content-muted/50'">
@@ -258,6 +315,8 @@ const cargaInicial = computed(() => pending.value && !data.value)
 const refrescando = computed(() => pending.value && !!data.value)
 
 const igvDebtFromYear = computed(() => Number(data.value?.igvDebtAccrualFromYear ?? 2026))
+const fondoDetraccionSaldo = computed(() => Number((data.value as any)?.detraccionFondoSaldo ?? 0))
+const fondoDetraccionApertura = computed(() => Number((data.value as any)?.detraccionFondoApertura ?? 0))
 const regimenSpec = computed(() => (data.value as any)?.regimenSpec ?? null)
 const coeficiente = computed(() => (data.value as any)?.coeficiente ?? null)
 
@@ -315,6 +374,8 @@ const meses = computed(() => {
       igvComprasLey:       Number(r.igvComprasLey31556 ?? 0),
       detraccionVentas:   Number(r.detraccionVentas ?? 0),
       detraccionCompras:  Number(r.detraccionCompras ?? 0),
+      pagoConDetraccion:  Number(r.pagoConDetraccion ?? 0),
+      detraccionFondoCierre: Number(r.detraccionFondoCierre ?? 0),
       saldoFavorAnterior: usarSunat ? det.saldoFavorAnterior : (saldoAnt < 0 ? Math.abs(saldoAnt) : 0),
       igvNeto:               usarSunat ? det.igvAPagar : igvNetoExacto,
       irSugerido:            usarSunat ? det.rentaAPagar : irExacto,
@@ -349,6 +410,9 @@ const totales = computed(() => {
     igvComprasLey:       m.reduce((s: number, x: any) => s + x.igvComprasLey, 0),
     detraccionVentas:   m.reduce((s: number, x: any) => s + x.detraccionVentas, 0),
     detraccionCompras:  m.reduce((s: number, x: any) => s + x.detraccionCompras, 0),
+    pagoConDetraccion:  m.reduce((s: number, x: any) => s + x.pagoConDetraccion, 0),
+    // El fondo es un saldo, no un flujo: el «total» del año es el de diciembre.
+    detraccionFondoCierre: m.length ? Number(m[m.length - 1].detraccionFondoCierre ?? 0) : 0,
     igvNeto:            m.reduce((s: number, x: any) => s + (x.igvNeto > 0 ? x.igvNeto : 0), 0),
     irSugerido:         m.reduce((s: number, x: any) => s + x.irSugerido, 0),
     totalAPagar:        m.reduce((s: number, x: any) => s + x.totalAPagar, 0),
@@ -470,6 +534,24 @@ const allColumns = [
     thBg: '',
     tdBg: '',
     textColor: 'text-amber-700 dark:text-amber-300',
+    soloConDetraccion: true,
+  },
+  {
+    key: 'pagoConDetraccion',
+    label: 'Pagado c/ detracc.',
+    casilla: null,
+    thBg: 'bg-amber-50 dark:bg-amber-500/10',
+    tdBg: 'bg-amber-50/50 dark:bg-amber-500/10',
+    textColor: 'text-amber-700 dark:text-amber-300',
+    soloConDetraccion: true,
+  },
+  {
+    key: 'detraccionFondoCierre',
+    label: 'Fondo detracc.',
+    casilla: null,
+    thBg: 'bg-amber-100 dark:bg-amber-500/15',
+    tdBg: 'bg-amber-100/50 dark:bg-amber-500/15',
+    textColor: 'text-amber-800 dark:text-amber-200 font-semibold',
     soloConDetraccion: true,
   },
   {
@@ -623,27 +705,53 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 // ─── Edición de pagos efectuados ─────────────────────
 const editingMonth = ref<number | null>(null)
-const editPayments = reactive({ pagoIgvEfectuado: 0, pagoIrEfectuado: 0 })
+const editPayments = reactive({ pagoIgvEfectuado: 0, pagoIrEfectuado: 0, pagoConDetraccion: 0 })
+const errorPago = ref('')
+
+/** Lo pagado con el fondo no puede exceder lo pagado ni el saldo disponible. */
+const totalPagoEditado = computed(() =>
+  (editPayments.pagoIgvEfectuado || 0) + (editPayments.pagoIrEfectuado || 0)
+)
+const fondoDisponibleAlEditar = computed(() => {
+  const m = (meses.value as any[]).find(x => x.month === editingMonth.value)
+  if (!m) return 0
+  // El saldo del mes ya tiene descontado lo que se estaba usando: se devuelve
+  // para poder reasignarlo sin que el tope baje al reabrir la edición.
+  return round2(Number(m.detraccionFondoCierre ?? 0) + Number(m.pagoConDetraccion ?? 0))
+})
 
 function startEdit(m: any) {
   editingMonth.value = m.month
+  errorPago.value = ''
   const sugeridoIgv = Math.round(Number(m.igvSugeridoPagoTotal ?? 0))
   editPayments.pagoIgvEfectuado = m.pagoIgvEfectuado || sugeridoIgv
   editPayments.pagoIrEfectuado = m.pagoIrEfectuado || Math.round(m.irSugerido)
+  editPayments.pagoConDetraccion = m.pagoConDetraccion || 0
+}
+
+/** Usa del fondo todo lo que alcance para cubrir el pago del mes. */
+function usarTodoElFondo() {
+  editPayments.pagoConDetraccion = Math.min(totalPagoEditado.value, fondoDisponibleAlEditar.value)
 }
 
 async function savePayment(month: number) {
-  await $fetch('/api/monthly-summary/update', {
-    method: 'PUT',
-    body: {
-      year: year.value,
-      month,
-      pagoIgvEfectuado: editPayments.pagoIgvEfectuado,
-      pagoIrEfectuado:  editPayments.pagoIrEfectuado,
-      pagoTotalEfectuado: editPayments.pagoIgvEfectuado + editPayments.pagoIrEfectuado,
-    },
-  })
-  editingMonth.value = null
-  refresh()
+  errorPago.value = ''
+  try {
+    await $fetch('/api/monthly-summary/update', {
+      method: 'PUT',
+      body: {
+        year: year.value,
+        month,
+        pagoIgvEfectuado: editPayments.pagoIgvEfectuado,
+        pagoIrEfectuado:  editPayments.pagoIrEfectuado,
+        pagoTotalEfectuado: totalPagoEditado.value,
+        pagoConDetraccion: editPayments.pagoConDetraccion,
+      },
+    })
+    editingMonth.value = null
+    refresh()
+  } catch (e: any) {
+    errorPago.value = e.data?.message || 'No se pudo guardar el pago'
+  }
 }
 </script>

@@ -401,6 +401,11 @@ model MonthlySummary {
   pagoIgvEfectuado        Decimal  @default(0) @db.Decimal(12, 2)
   pagoTotalSugerido       Decimal  @default(0) @db.Decimal(12, 2)
   pagoTotalEfectuado      Decimal  @default(0) @db.Decimal(12, 2)
+  /// Parte del pago del mes que salió de la cuenta de detracciones del Banco de
+  /// la Nación. No es un pago aparte —ya está dentro de `pagoIgvEfectuado` y
+  /// `pagoIrEfectuado`—: solo dice de dónde salió el dinero, para poder llevar
+  /// el saldo del fondo.
+  pagoConDetraccion       Decimal  @default(0) @db.Decimal(12, 2)
   observaciones           String?  @db.Text
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt

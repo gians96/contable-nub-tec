@@ -39,6 +39,9 @@ export default defineEventHandler(async (event) => {
   /** Saldo a favor de la determinación en soles enteros, la que llena el 0621. */
   let saldoFavorSunat = 0
   let deudaIgvAcum = openingIgvDebt
+  /** Cuenta de detracciones del Banco de la Nación, arrastrada desde años anteriores. */
+  const fondoDetraccionApertura = await saldoFondoAlAbrirAnio(ctx, year)
+  let fondoDetraccion = fondoDetraccionApertura
   // El umbral de las 300 UIT del RMT se mide sobre ingresos ANUALES acumulados,
   // así que la tasa del pago a cuenta puede cambiar a mitad de año.
   let ingresosNetosAcum = 0
@@ -90,6 +93,13 @@ export default defineEventHandler(async (event) => {
     const saved = savedMap.get(`${year}-${month}`)
     const pagoIgv = saved ? Number(saved.pagoIgvEfectuado) : 0
 
+    // Fondo de detracciones: abona lo detraído en las ventas del mes y carga lo
+    // que se usó para pagar tributos. Las detracciones de compras no entran:
+    // ese dinero va a la cuenta del proveedor, no a la propia.
+    const detraccionUsada = saved ? Number(saved.pagoConDetraccion) : 0
+    const fondoInicioMes = fondoDetraccion
+    fondoDetraccion = round2(fondoInicioMes + resumen.detraccionVentas - detraccionUsada)
+
     const igvDeudaInicioMes = deudaIgvAcum
     let igvDeudaCierreMes = 0
     let igvSugeridoPagoTotal = igvDelPeriodoAPagar
@@ -111,6 +121,9 @@ export default defineEventHandler(async (event) => {
       igvDeudaInicioMes: round2(igvDeudaInicioMes),
       igvDeudaCierreMes: round2(igvDeudaCierreMes),
       igvSugeridoPagoTotal: round2(igvSugeridoPagoTotal),
+      pagoConDetraccion: detraccionUsada,
+      detraccionFondoInicio: round2(fondoInicioMes),
+      detraccionFondoCierre: round2(fondoDetraccion),
       guia,
     })
 
@@ -126,6 +139,8 @@ export default defineEventHandler(async (event) => {
     igvPercent: taxContext.igvPercent,
     uit: taxContext.uit,
     coeficiente,
+    detraccionFondoApertura: round2(fondoDetraccionApertura),
+    detraccionFondoSaldo: round2(fondoDetraccion),
     summaries,
   }
 })
