@@ -635,10 +635,6 @@ function exportar(format: string) {
   window.open(`/api/export?${params}`, '_blank')
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 function destinoColor(destino: string): 'green' | 'red' | 'blue' | 'orange' | 'gray' | 'purple' | 'yellow' {
   const colors: Record<string, any> = {
     VENTA: 'green', COSTO_VENTAS: 'red', GASTO_ADMIN: 'blue',

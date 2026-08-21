@@ -206,10 +206,6 @@ function categoriaNombre(cat: string) {
   return nombres[cat] || cat
 }
 
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 // Formulario
 const showForm = ref(false)
 const editingId = ref<number | null>(null)
