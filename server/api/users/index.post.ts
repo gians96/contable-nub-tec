@@ -18,6 +18,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'El usuario es obligatorio' })
   }
 
+  const email = String(body?.email ?? '').trim().toLowerCase() || null
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw createError({ statusCode: 400, message: 'El correo no tiene un formato válido' })
+  }
+
   const role = ROLES.has(body?.role) ? body.role : 'LECTOR'
   await assertCupoUsuarios(ctx)
 
@@ -37,11 +42,21 @@ export default defineEventHandler(async (event) => {
       ? validarPassword(body.password)
       : generarPasswordTemporal()
 
+    if (email) {
+      const repetido = await basePrisma.user.findUnique({ where: { email } })
+      if (repetido) {
+        throw createError({ statusCode: 409, message: `Ya hay una cuenta con el correo ${email}` })
+      }
+    }
+
     user = await basePrisma.user.create({
       data: {
         username,
+        email,
         nombre: body?.nombre?.trim() || null,
         passwordHash: bcrypt.hashSync(passwordTemporal, 10),
+        // La contraseña la fija un tercero: hay que cambiarla al entrar.
+        debeCambiarPassword: true,
       },
     })
   }
@@ -62,6 +77,7 @@ export default defineEventHandler(async (event) => {
     membershipId: membership.id,
     id: user.id,
     username: user.username,
+    email: user.email,
     nombre: user.nombre,
     role: membership.role,
     activo: membership.activo,

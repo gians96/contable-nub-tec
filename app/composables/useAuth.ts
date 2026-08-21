@@ -11,7 +11,9 @@ export interface EmpresaDeSesion {
 export interface SessionUser {
   id: number
   username: string
+  email: string | null
   nombre: string | null
+  debeCambiarPassword: boolean
   platformRole: 'SUPERADMIN' | 'USER'
   activo: boolean
   companyRole: CompanyRole | null

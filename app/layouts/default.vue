@@ -42,6 +42,20 @@
         <LayoutUserMenu />
       </header>
 
+      <!-- Contraseña temporal sin cambiar: quien la fijó todavía la conoce. -->
+      <div
+        v-if="user?.debeCambiarPassword"
+        class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100 lg:px-8"
+      >
+        <span>
+          Estás usando una <strong>contraseña temporal</strong>. Cámbiala para que solo tú la conozcas.
+        </span>
+        <button type="button" class="shrink-0 font-semibold underline" @click="mostrarCuenta = true">
+          Cambiarla ahora
+        </button>
+      </div>
+      <LayoutAccountModal v-model="mostrarCuenta" />
+
       <!-- Content -->
       <main class="flex-1 p-4 lg:p-8">
         <slot />
@@ -52,6 +66,8 @@
 
 <script setup lang="ts">
 const isMobile = useIsMobile()
+const { user } = useAuth()
+const mostrarCuenta = ref(false)
 useAppContext()
 
 // Cookie y no ref local: el servidor la lee y el HTML sale ya con el margen

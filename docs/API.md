@@ -26,7 +26,7 @@ Login con credenciales. Setea cookie httpOnly.
 
 **Body:**
 ```json
-{ "username": "admin", "password": "admin123" }
+{ "username": "admin o tu@correo.com", "password": "…" }
 ```
 
 **Response:** `{ "id": 1, "username": "admin" }`

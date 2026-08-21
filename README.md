@@ -68,7 +68,9 @@ bun run dev
 
 Abre la URL que muestre la consola (suele ser http://localhost:3000). En Windows el proyecto fuerza `NITRO_NO_UNIX_SOCKET` desde `nuxt.config.ts` para evitar que el worker de Nitro caiga con *worker exited with code 0* al usar named pipes.
 
-Usuario de demo: `admin` / `admin123`.
+Usuario de demo: `admin`. La contraseña la genera el seed al azar y la imprime una sola vez en consola; también puedes fijarla con `SEED_ADMIN_PASSWORD`.
+
+Se puede iniciar sesión con el **nombre de usuario o el correo**, indistintamente. El correo se configura desde el menú de usuario → Mi cuenta.
 
 ## Producción
 

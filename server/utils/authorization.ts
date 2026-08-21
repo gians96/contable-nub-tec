@@ -77,7 +77,9 @@ export function publicUser(user: User) {
   return {
     id: user.id,
     username: user.username,
+    email: user.email,
     nombre: user.nombre,
+    debeCambiarPassword: user.debeCambiarPassword,
     platformRole: user.platformRole,
     activo: user.activo,
     createdAt: user.createdAt,

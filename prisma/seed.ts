@@ -8,6 +8,13 @@ const prisma = new PrismaClient({ adapter })
 
 const RUC_DEMO = '20605555153'
 
+/** Contraseña legible al azar para el primer superadministrador. */
+function generarPassword(): string {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(14))
+  return Array.from(bytes, b => alfabeto[b % alfabeto.length]).join('')
+}
+
 async function main() {
   console.log('🌱 Seeding database con datos reales...')
 
@@ -37,9 +44,18 @@ async function main() {
   console.log('  ✓ Datos anteriores de la empresa de demo eliminados')
 
   // ─── Usuario admin ────────────────────────────────────
-  const passwordHash = await bcrypt.hash('admin123', 10)
+  // La contraseña se genera al azar y se imprime UNA vez. Tenerla escrita aquí
+  // significaba que cualquiera que leyera el repositorio —o la pantalla de
+  // login, donde estaba impresa— tenía la cuenta de superadministrador.
+  const passwordAdmin = process.env.SEED_ADMIN_PASSWORD || generarPassword()
+  const passwordHash = await bcrypt.hash(passwordAdmin, 10)
+
+  const existente = await prisma.user.findUnique({ where: { username: 'admin' } })
+
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
+    // A un admin que ya existe NO se le toca la contraseña: el seed se ejecuta
+    // más de una vez y no puede echar a nadie de su propia cuenta.
     update: { role: 'ADMIN', platformRole: 'SUPERADMIN', activo: true },
     create: {
       username: 'admin',
@@ -47,6 +63,7 @@ async function main() {
       nombre: 'Administrador',
       role: 'ADMIN',
       platformRole: 'SUPERADMIN',
+      debeCambiarPassword: true,
     },
   })
 
@@ -55,7 +72,19 @@ async function main() {
     update: { role: 'OWNER', activo: true },
     create: { userId: admin.id, companyId, role: 'OWNER' },
   })
-  console.log('  ✓ Usuario: admin / admin123 (superadmin y propietario de la demo)')
+  if (existente) {
+    console.log('  ✓ Usuario admin ya existía: se conserva su contraseña')
+  } else {
+    console.log('  ✓ Usuario admin creado (superadmin y propietario de la demo)')
+    console.log('')
+    console.log('  ┌─────────────────────────────────────────────────┐')
+    console.log('  │  ANOTA ESTO AHORA: no se vuelve a mostrar       │')
+    console.log('  ├─────────────────────────────────────────────────┤')
+    console.log(`  │  usuario:     admin`)
+    console.log(`  │  contraseña:  ${passwordAdmin}`)
+    console.log('  └─────────────────────────────────────────────────┘')
+    console.log('')
+  }
 
   // ─── Parámetros tributarios ───────────────────────────
   for (const p of [

@@ -11,6 +11,7 @@ import { createTenantClient } from '../database/tenant'
 /** Rutas que no necesitan empresa en absoluto. */
 const SIN_EMPRESA = [
   '/api/auth/change-password',
+  '/api/auth/profile',
   '/api/platform/',
 ]
 

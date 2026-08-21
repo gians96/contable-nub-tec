@@ -147,8 +147,13 @@ enum EstadoCierre {
 model User {
   id           Int          @id @default(autoincrement())
   username     String       @unique
+  /// Alternativa al usuario para iniciar sesión. Nullable + unique: MySQL
+  /// admite varios NULL, así que las cuentas sin correo no chocan entre sí.
+  email        String?      @unique
   passwordHash String
   nombre       String?
+  /// Contraseña temporal pendiente de cambiar (alta de miembro o seed inicial).
+  debeCambiarPassword Boolean @default(false)
   /// Legado; se elimina cuando el rol por empresa lleve tiempo en producción.
   role         UserRole     @default(USUARIO)
   platformRole PlatformRole @default(USER)

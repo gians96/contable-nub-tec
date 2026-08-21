@@ -26,8 +26,10 @@
       <div v-if="abierto" class="menu-surface absolute right-0 z-50 mt-2 w-64 origin-top-right" role="menu">
       <div class="border-b border-line px-3 pb-3 pt-2">
         <p class="truncate text-sm font-semibold text-content">{{ user?.nombre || user?.username }}</p>
-        <div class="mt-1 flex items-center gap-2">
-          <span class="truncate text-xs text-content-muted">&#64;{{ user?.username }}</span>
+        <p class="mt-0.5 truncate text-xs text-content-muted">
+          &#64;{{ user?.username }}<template v-if="user?.email"> · {{ user.email }}</template>
+        </p>
+        <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
           <UiBadge v-if="companyRole" :variant="isAdmin ? 'blue' : 'gray'">{{ NOMBRES_ROL[companyRole] }}</UiBadge>
           <UiBadge v-if="isSuperadmin" variant="purple">Superadmin</UiBadge>
         </div>
@@ -64,11 +66,12 @@
       </div>
 
       <div class="pt-1.5">
-        <button type="button" class="menu-item" role="menuitem" @click="abrirPassword">
+        <button type="button" class="menu-item" role="menuitem" @click="abrirCuenta">
           <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 118 0v4" />
+            <circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0116 0v1" />
           </svg>
-          Cambiar contraseña
+          Mi cuenta
+          <span v-if="user?.debeCambiarPassword" class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-500" />
         </button>
 
         <NuxtLink to="/empresas" class="menu-item" role="menuitem" @click="abierto = false">
@@ -119,7 +122,7 @@
       </div>
     </Transition>
 
-    <LayoutChangePasswordModal v-model="mostrarPassword" />
+    <LayoutAccountModal v-model="mostrarCuenta" />
   </div>
 </template>
 
@@ -128,12 +131,12 @@ const { user, isAdmin, isSuperadmin, companyRole, iniciales, logout } = useAuth(
 const { mode, setTheme, opciones } = useTheme()
 
 const abierto = ref(false)
-const mostrarPassword = ref(false)
+const mostrarCuenta = ref(false)
 const contenedor = ref<HTMLElement | null>(null)
 
-function abrirPassword() {
+function abrirCuenta() {
   abierto.value = false
-  mostrarPassword.value = true
+  mostrarCuenta.value = true
 }
 
 async function salir() {

@@ -12,16 +12,22 @@ const COOKIE_BASE = {
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { username, password } = body
+  const { password } = body
 
-  if (!username || !password) {
-    throw createError({ statusCode: 400, message: 'Usuario y contraseña son obligatorios' })
+  // El campo admite indistintamente el nombre de usuario o el correo. Ambos se
+  // guardan en minúsculas, así que basta con normalizar lo que llega.
+  const identificador = String(body.username ?? body.usuario ?? '').trim().toLowerCase()
+
+  if (!identificador || !password) {
+    throw createError({ statusCode: 400, message: 'Usuario o correo y contraseña son obligatorios' })
   }
 
-  const user = await basePrisma.user.findUnique({ where: { username } })
+  const user = await basePrisma.user.findFirst({
+    where: { OR: [{ username: identificador }, { email: identificador }] },
+  })
 
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    throw createError({ statusCode: 401, message: 'Usuario o contraseña incorrectos' })
+    throw createError({ statusCode: 401, message: 'Credenciales incorrectas' })
   }
 
   if (!user.activo) {
@@ -47,5 +53,9 @@ export default defineEventHandler(async (event) => {
     deleteCookie(event, 'cp_company', { path: '/' })
   }
 
-  return { ok: true, user: { id: user.id, username: user.username } }
+  return {
+    ok: true,
+    user: { id: user.id, username: user.username },
+    debeCambiarPassword: user.debeCambiarPassword,
+  }
 })

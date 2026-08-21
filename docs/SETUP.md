@@ -55,7 +55,7 @@ bun run prisma/seed.ts
 ```
 
 Esto crea:
-- Usuario admin: `admin` / `admin123`
+- Usuario admin: `admin`. El seed genera la contraseña al azar y la imprime **una sola vez** en consola; anótala. Para fijarla tú: `SEED_ADMIN_PASSWORD='…' bun prisma/seed.ts`. Si el usuario `admin` ya existe, el seed **no** toca su contraseña.
 - Empresa de ejemplo: Nubetec Solutions SAC
 - Parámetros tributarios 2024-2026
 - 10 clientes/proveedores

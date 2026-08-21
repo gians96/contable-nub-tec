@@ -11,14 +11,16 @@
 
       <form class="space-y-5 px-8 py-8" @submit.prevent="handleLogin">
         <div class="space-y-1.5">
-          <label class="label-field" for="login-user">Usuario</label>
+          <label class="label-field" for="login-user">Usuario o correo</label>
           <input
             id="login-user"
             v-model="username"
             type="text"
             class="input-field"
-            placeholder="admin"
+            placeholder="tu usuario o tu@correo.com"
             autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
             required
           />
         </div>
@@ -43,11 +45,6 @@
           {{ loading ? 'Ingresando…' : 'Ingresar' }}
         </button>
       </form>
-
-      <p class="border-t border-line bg-surface-raised/80 px-8 py-4 text-center text-xs text-content-muted">
-        Usuario por defecto: <span class="font-mono text-content-soft">admin</span> /
-        <span class="font-mono text-content-soft">admin123</span>
-      </p>
     </div>
   </div>
 </template>

@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
   await basePrisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: bcrypt.hashSync(nueva, 10) },
+    data: { passwordHash: bcrypt.hashSync(nueva, 10), debeCambiarPassword: false },
   })
 
   // El token sigue siendo válido: identifica al usuario, no a la contraseña.

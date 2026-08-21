@@ -28,7 +28,12 @@
           <tr v-for="u in usuarios" :key="u.id" class="border-b border-line last:border-b-0">
             <td class="px-3 py-3">
               <p class="font-medium text-content">{{ u.nombre || u.username }}</p>
-              <p class="text-xs text-content-muted">&#64;{{ u.username }}</p>
+              <p class="text-xs text-content-muted">
+                &#64;{{ u.username }}<template v-if="u.email"> · {{ u.email }}</template>
+              </p>
+              <UiBadge v-if="u.debeCambiarPassword" variant="yellow" class="mt-1">
+                Contraseña temporal sin cambiar
+              </UiBadge>
             </td>
             <td class="px-3 py-3">
               <select
@@ -76,6 +81,19 @@
         <div>
           <label class="label-field" for="us-nombre">Nombre</label>
           <input id="us-nombre" v-model="nuevo.nombre" type="text" class="input-field" placeholder="Opcional" />
+        </div>
+        <div>
+          <label class="label-field" for="us-email">Correo</label>
+          <input
+            id="us-email"
+            v-model="nuevo.email"
+            type="email"
+            class="input-field"
+            placeholder="Opcional"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <p class="hint-field">Si lo pones, podrá entrar con su usuario o con el correo.</p>
         </div>
         <div>
           <label class="label-field" for="us-role">Rol</label>
@@ -143,7 +161,9 @@ interface MiembroFila {
   membershipId: number
   id: number
   username: string
+  email: string | null
   nombre: string | null
+  debeCambiarPassword: boolean
   role: CompanyRole
   activo: boolean
 }
@@ -161,7 +181,7 @@ const creando = ref(false)
 const copiado = ref(false)
 const credenciales = ref<{ username: string; passwordTemporal: string | null } | null>(null)
 
-const nuevo = reactive({ username: '', nombre: '', role: 'CONTADOR' as CompanyRole })
+const nuevo = reactive({ username: '', email: '', nombre: '', role: 'CONTADOR' as CompanyRole })
 
 async function cargar() {
   loading.value = true
@@ -181,6 +201,7 @@ function mostrarError(e: any) {
 
 function abrirNuevo() {
   nuevo.username = ''
+  nuevo.email = ''
   nuevo.nombre = ''
   nuevo.role = 'CONTADOR'
   mensaje.value = ''
