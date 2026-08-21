@@ -66,6 +66,18 @@ export default defineEventHandler(async (event) => {
 
       const { baseImponible, igv } = calcularBaseEIGV(total, afectoIgv, igvPercent)
 
+      const detraccion = row['Detracción'] === 'SI'
+      const detraccionPorcentaje = detraccion ? round2(Number(row['% Detracción']) || 0) : 0
+      const montoDelArchivo = Number(row['Monto Detracción'])
+      const detraccionMonto = detraccion
+        ? (Number.isFinite(montoDelArchivo) && montoDelArchivo !== 0
+            ? round2(montoDelArchivo)
+            : calcularDetraccion(total, detraccionPorcentaje).monto)
+        : 0
+      const fechaDeposito = row['Fecha Depósito Detracción']
+        ? new Date(row['Fecha Depósito Detracción'])
+        : null
+
       const voucher = await ctx.db.voucher.create({
         data: {
           companyId: ctx.companyId,
@@ -73,7 +85,7 @@ export default defineEventHandler(async (event) => {
           month,
           fecha,
           tipoMovimiento,
-          tipoComprobante: row['Tipo Comprobante'] || 'FACTURA',
+          tipoComprobante,
           serie: row['Serie'] || null,
           numero: row['Número'] || null,
           rucDni: row['RUC/DNI'] || null,
@@ -90,6 +102,13 @@ export default defineEventHandler(async (event) => {
           subcategoria: row['Subcategoría'] || 'OTRO',
           deducibleIr: row['Deducible IR'] !== 'NO',
           creditoFiscalIgv: afectoIgv && row['Crédito Fiscal'] !== 'NO',
+          detraccion,
+          detraccionCodigo: detraccion ? (row['Cód. Detracción'] || null) : null,
+          detraccionPorcentaje,
+          detraccionMonto,
+          detraccionConstancia: detraccion ? (row['Constancia Detracción'] || null) : null,
+          detraccionFechaDeposito:
+            fechaDeposito && !Number.isNaN(fechaDeposito.getTime()) ? fechaDeposito : null,
           observacion: row['Observación'] || null,
         },
       })

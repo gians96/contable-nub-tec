@@ -21,6 +21,10 @@ export default defineEventHandler(async (event) => {
     data: {
       ...data,
       companyId: db.$companyId,
+      // La constancia de depósito identifica un depósito concreto: se hereda el
+      // régimen de detracción (código y tasa) pero no el comprobante bancario.
+      detraccionConstancia: null,
+      detraccionFechaDeposito: null,
       observacion: `[Duplicado] ${data.observacion || ''}`.trim(),
     },
     include: { party: true },

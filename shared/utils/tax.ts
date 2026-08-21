@@ -119,6 +119,8 @@ export function resumirMes(
   let activoFijo = 0
   let comprasNoDeducibles = 0
   let totalComprasMes = 0
+  let detraccionVentas = 0
+  let detraccionCompras = 0
 
   // Desglose por casilla del 0621
   let baseVentasGravadas = 0
@@ -137,8 +139,12 @@ export function resumirMes(
     const igv = aplicaIgv ? Number(v.igv) : 0
     const total = Number(v.importeTotal)
     const grupo = grupoIgvDelVoucher(v)
+    // La detracción no entra en ninguna casilla del 0621: se acumula aparte
+    // porque afecta a la caja, no al impuesto.
+    const detraccion = v.detraccion ? Number(v.detraccionMonto ?? 0) : 0
 
     if (v.tipoMovimiento === 'VENTA') {
+      detraccionVentas += detraccion
       baseVentas += base
       igvVentas += igv
       totalVentas += total
@@ -154,6 +160,7 @@ export function resumirMes(
       }
     } else {
       // COMPRA
+      detraccionCompras += detraccion
       totalComprasMes += total
 
       const conCredito = aplicaCreditoFiscal && v.creditoFiscalIgv && grupo !== 'NO_GRAVADA'
@@ -223,6 +230,11 @@ export function resumirMes(
     igvComprasLey31556: round2(igvComprasLey31556),
     comprasNoGravadas: round2(comprasNoGravadas),
     totalComprasMes: round2(totalComprasMes),
+
+    detraccionVentas: round2(detraccionVentas),
+    detraccionCompras: round2(detraccionCompras),
+    netoCobradoVentas: round2(totalVentas - detraccionVentas),
+    netoPagadoCompras: round2(totalComprasMes - detraccionCompras),
 
     costoVentas: round2(costoVentas),
     gastoAdministracion: round2(gastoAdministracion),

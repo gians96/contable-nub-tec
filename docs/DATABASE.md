@@ -150,9 +150,23 @@ Comprobantes de venta y compra.
 | inventarioFinal | BOOLEAN | ¿Es inventario final? |
 | activoFijo | BOOLEAN | ¿Es activo fijo? |
 | vidaUtilMeses | INT? | Vida útil en meses (para deprec.) |
+| detraccion | BOOLEAN | ¿Operación sujeta al SPOT? |
+| detraccionCodigo | VARCHAR? | Código del anexo de la R.S. 183-2004/SUNAT (ej. `037`) |
+| detraccionPorcentaje | DECIMAL(5,2) | Tasa aplicada a **este** comprobante |
+| detraccionMonto | DECIMAL(12,2) | Importe detraído |
+| detraccionConstancia | VARCHAR? | Nº de constancia de depósito en el Banco de la Nación |
+| detraccionFechaDeposito | DATETIME? | Fecha del depósito |
 | observacion | TEXT? | Notas |
 
 **Índices:** `(year, month)`, `(tipoMovimiento)`, `(destinoTributario)`
+
+**Sobre la detracción:** no altera `baseImponible` ni `igv` —el comprobante se
+declara completo en las casillas 100/101 y 107/108—, solo el neto que se cobra
+o se paga. Por eso son columnas propias y no un descuento sobre `importeTotal`.
+
+**Sobre los importes negativos:** una nota de crédito se registra en negativo,
+igual que en el registro de ventas de SUNAT, para que el mes reste sin más. Es
+el único `tipoComprobante` al que la validación se lo permite.
 
 ### `inventory_assets`
 Inventario y activos fijos.

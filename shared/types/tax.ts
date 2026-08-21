@@ -44,6 +44,15 @@ export interface ResumenMensual {
   igvComprasLey31556: number
   comprasNoGravadas: number
   totalComprasMes: number
+
+  // Detracciones (SPOT). No van a ninguna casilla del 0621: la operación se
+  // declara completa. Miden caja: cuánto se depositó en la cuenta del Banco de
+  // la Nación (ventas) o cuánto hay que depositar (compras).
+  detraccionVentas: number
+  detraccionCompras: number
+  netoCobradoVentas: number
+  netoPagadoCompras: number
+
   costoVentas: number
   gastoAdministracion: number
   gastoVentas: number

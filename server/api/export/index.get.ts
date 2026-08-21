@@ -41,6 +41,17 @@ export default defineEventHandler(async (event) => {
       'Subcategoría': v.subcategoria,
       'Deducible IR': v.deducibleIr ? 'SI' : 'NO',
       'Crédito Fiscal': v.creditoFiscalIgv ? 'SI' : 'NO',
+      'Detracción': v.detraccion ? 'SI' : 'NO',
+      'Cód. Detracción': v.detraccionCodigo || '',
+      '% Detracción': Number(v.detraccionPorcentaje),
+      'Monto Detracción': Number(v.detraccionMonto),
+      'Constancia Detracción': v.detraccionConstancia || '',
+      'Fecha Depósito Detracción': v.detraccionFechaDeposito
+        ? v.detraccionFechaDeposito.toISOString().split('T')[0]
+        : '',
+      // Lo que de verdad entra o sale de caja: el resto del importe se deposita
+      // en la cuenta de detracciones del proveedor.
+      'Neto Cobrado/Pagado': netoDeDetraccion(v),
       'Observación': v.observacion || '',
     }))
     filename = `comprobantes_${year || 'todos'}`

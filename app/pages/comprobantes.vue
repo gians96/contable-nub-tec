@@ -104,10 +104,27 @@
                 <span v-if="v.serie || v.numero" class="ml-1 text-xs text-content-muted">
                   {{ v.serie }}-{{ v.numero }}
                 </span>
+                <UiBadge
+                  v-if="v.detraccion"
+                  variant="yellow"
+                  class="ml-1"
+                  :title="`Detracción ${nombreCodigoDetraccion(v.detraccionCodigo)}`"
+                >
+                  Detr. {{ Number(v.detraccionPorcentaje) }}%
+                </UiBadge>
               </td>
               <td class="whitespace-nowrap px-4 py-3 font-mono text-xs text-content-soft">{{ v.rucDni || '—' }}</td>
               <td class="max-w-[220px] truncate px-4 py-3 text-content">{{ v.razonSocial || '—' }}</td>
-              <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-content">S/ {{ formatMoney(Number(v.importeTotal)) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-content">
+                S/ {{ formatMoney(Number(v.importeTotal)) }}
+                <span
+                  v-if="v.detraccion"
+                  class="block text-xs font-normal text-amber-700 dark:text-amber-300"
+                  :title="v.tipoMovimiento === 'VENTA' ? 'Neto cobrado tras la detracción' : 'Neto pagado al proveedor tras la detracción'"
+                >
+                  neto S/ {{ formatMoney(netoDeDetraccion(v)) }}
+                </span>
+              </td>
               <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-content-soft">S/ {{ formatMoney(Number(v.baseImponible)) }}</td>
               <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-content-soft">
                 S/ {{ formatMoney(Number(v.igv)) }}
@@ -229,8 +246,11 @@
             </div>
             <div>
               <label class="label-field">Importe Total * (S/)</label>
-              <input v-model.number="form.importeTotal" type="number" step="0.01" min="0" class="input-field" required
-                @input="recalcular" />
+              <input v-model.number="form.importeTotal" type="number" step="0.01" :min="esNotaCredito ? undefined : 0"
+                class="input-field" required @input="recalcular" />
+              <p v-if="esNotaCredito" class="hint-field">
+                Una nota de crédito resta: escríbela en negativo, igual que en el registro de ventas de SUNAT.
+              </p>
             </div>
             <div>
               <label class="label-field">Base Imponible (S/)
@@ -301,7 +321,77 @@
           </div>
         </div>
 
-        <!-- Sección 4: Opciones adicionales -->
+        <!-- Sección 4: Detracción (SPOT) -->
+        <div>
+          <h3 class="text-sm font-semibold text-content-soft mb-3">Detracción (SPOT)</h3>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input v-model="form.detraccion" type="checkbox" class="rounded" @change="onDetraccionChange" />
+            Operación sujeta a detracción
+          </label>
+          <p class="text-xs text-content-muted mt-1">
+            El comprobante se declara completo en el 0621; la detracción solo cambia lo que se cobra o se paga.
+          </p>
+
+          <div v-if="form.detraccion" class="mt-4 space-y-3">
+            <UiAlert v-if="!superaUmbralDetraccion(form.importeTotal)" type="warning">
+              El importe no supera los S/ {{ UMBRAL_DETRACCION }}. Los servicios del Anexo 3 solo se
+              detraen por encima de ese monto; algunos bienes del Anexo 2 sí se detraen sin mínimo.
+            </UiAlert>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="sm:col-span-2">
+                <label class="label-field">Bien o servicio sujeto a detracción</label>
+                <select v-model="form.detraccionCodigo" class="select-field" @change="onCodigoDetraccionChange">
+                  <option value="">Otro / no listado…</option>
+                  <optgroup label="Anexo 3 — Servicios y construcción">
+                    <option v-for="c in codigosAnexo3" :key="c.codigo" :value="c.codigo">
+                      {{ c.codigo }} — {{ c.label }} ({{ c.tasa }}%)
+                    </option>
+                  </optgroup>
+                  <optgroup label="Anexo 2 — Bienes">
+                    <option v-for="c in codigosAnexo2" :key="c.codigo" :value="c.codigo">
+                      {{ c.codigo }} — {{ c.label }} ({{ c.tasa }}%)
+                    </option>
+                  </optgroup>
+                </select>
+                <p class="hint-field">Las tasas son referenciales: SUNAT las cambia por resolución. Confirma con la constancia.</p>
+              </div>
+              <div>
+                <label class="label-field">Porcentaje (%)</label>
+                <input v-model.number="form.detraccionPorcentaje" type="number" step="0.01" min="0" max="100"
+                  class="input-field" @input="recalcularDetraccion" />
+              </div>
+              <div>
+                <label class="label-field">Monto de la detracción (S/)</label>
+                <input v-model.number="form.detraccionMonto" type="number" step="0.01" class="input-field" />
+                <p class="hint-field">
+                  Depósito sugerido: S/ {{ formatMoney(detraccionCalculada.deposito) }} (el Banco de la Nación recibe soles enteros)
+                </p>
+              </div>
+              <div>
+                <label class="label-field">Nº de constancia de depósito</label>
+                <input v-model="form.detraccionConstancia" type="text" class="input-field" placeholder="Ej: 00012345678" />
+              </div>
+              <div>
+                <label class="label-field">Fecha del depósito</label>
+                <input v-model="form.detraccionFechaDeposito" type="date" class="input-field" />
+                <p v-if="form.tipoMovimiento === 'COMPRA'" class="hint-field">
+                  Sin depósito acreditado no se puede usar el crédito fiscal de esta compra.
+                </p>
+              </div>
+              <div class="flex items-end">
+                <div class="w-full rounded-lg bg-surface-raised px-3 py-2">
+                  <p class="text-xs text-content-muted">{{ etiquetaNetoDetraccion }}</p>
+                  <p class="text-base font-semibold tabular-nums text-content">
+                    S/ {{ formatMoney(netoDetraccion) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección 5: Opciones adicionales -->
         <div>
           <h3 class="text-sm font-semibold text-content-soft mb-3">Opciones adicionales</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -430,6 +520,12 @@ const form = reactive({
   inventarioFinal: false,
   activoFijo: false,
   vidaUtilMeses: null as number | null,
+  detraccion: false,
+  detraccionCodigo: '',
+  detraccionPorcentaje: 0,
+  detraccionMonto: 0,
+  detraccionConstancia: '',
+  detraccionFechaDeposito: '',
   observacion: '',
 })
 
@@ -447,8 +543,62 @@ function resetForm() {
     medioPago: 'TRANSFERENCIA', estadoPago: 'PAGADO',
     destinoTributario: '', subcategoria: 'OTRO',
     deducibleIr: true, creditoFiscalIgv: true,
-    inventarioFinal: false, activoFijo: false, vidaUtilMeses: null, observacion: '',
+    inventarioFinal: false, activoFijo: false, vidaUtilMeses: null,
+    detraccion: false, detraccionCodigo: '', detraccionPorcentaje: 0, detraccionMonto: 0,
+    detraccionConstancia: '', detraccionFechaDeposito: '',
+    observacion: '',
   })
+}
+
+// ─── Detracción (SPOT) ──────────────────────────────────
+
+const esNotaCredito = computed(() => form.tipoComprobante === 'NOTA_CREDITO')
+
+const codigosAnexo3 = CODIGOS_DETRACCION.filter(c => c.anexo === 3)
+const codigosAnexo2 = CODIGOS_DETRACCION.filter(c => c.anexo === 2)
+
+const detraccionCalculada = computed(() =>
+  calcularDetraccion(form.importeTotal, form.detraccionPorcentaje)
+)
+
+/** Neto según el monto realmente guardado, que puede diferir del calculado. */
+const netoDetraccion = computed(() => round2(form.importeTotal - (form.detraccionMonto || 0)))
+
+const etiquetaNetoDetraccion = computed(() => {
+  if (form.tipoMovimiento === 'VENTA') return 'Neto a cobrar'
+  if (form.tipoMovimiento === 'COMPRA') return 'Neto a pagar al proveedor'
+  return 'Neto tras la detracción'
+})
+
+function onDetraccionChange() {
+  if (!form.detraccion) {
+    form.detraccionCodigo = ''
+    form.detraccionPorcentaje = 0
+    form.detraccionMonto = 0
+    form.detraccionConstancia = ''
+    form.detraccionFechaDeposito = ''
+    return
+  }
+  // Arranque razonable: el código genérico de servicios es el caso habitual.
+  if (!form.detraccionPorcentaje) {
+    form.detraccionCodigo = CODIGO_DETRACCION_GENERICO
+    onCodigoDetraccionChange()
+  }
+}
+
+function onCodigoDetraccionChange() {
+  const tasa = tasaDetraccionSugerida(form.detraccionCodigo)
+  if (tasa != null) form.detraccionPorcentaje = tasa
+  recalcularDetraccion()
+}
+
+/**
+ * El monto se recalcula al cambiar tasa o importe, pero sigue siendo editable:
+ * manda la constancia del Banco de la Nación, que va en soles enteros.
+ */
+function recalcularDetraccion() {
+  if (!form.detraccion) return
+  form.detraccionMonto = calcularDetraccion(form.importeTotal, form.detraccionPorcentaje).monto
 }
 
 // Tasa de IGV: preset de ley o valor libre. El régimen decide a qué casillas del
@@ -499,6 +649,7 @@ function recalcular() {
     form.baseImponible = baseImponible
     form.igv = igv
   }
+  recalcularDetraccion()
 }
 
 watch(() => form.afectoIgv, () => recalcular())
@@ -586,6 +737,12 @@ function editVoucher(v: any) {
     inventarioFinal: v.inventarioFinal,
     activoFijo: v.activoFijo,
     vidaUtilMeses: v.vidaUtilMeses,
+    detraccion: !!v.detraccion,
+    detraccionCodigo: v.detraccionCodigo || '',
+    detraccionPorcentaje: Number(v.detraccionPorcentaje ?? 0),
+    detraccionMonto: Number(v.detraccionMonto ?? 0),
+    detraccionConstancia: v.detraccionConstancia || '',
+    detraccionFechaDeposito: v.detraccionFechaDeposito ? v.detraccionFechaDeposito.split('T')[0] : '',
     observacion: v.observacion || '',
   })
   showForm.value = true

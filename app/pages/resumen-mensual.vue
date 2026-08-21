@@ -301,6 +301,8 @@ const meses = computed(() => {
       igvComprasGravadas:  Number(r.igvComprasGravadas ?? igvCf),
       baseComprasLey:      Number(r.baseComprasLey31556 ?? 0),
       igvComprasLey:       Number(r.igvComprasLey31556 ?? 0),
+      detraccionVentas:   Number(r.detraccionVentas ?? 0),
+      detraccionCompras:  Number(r.detraccionCompras ?? 0),
       saldoFavorAnterior: saldoAnt < 0 ? Math.abs(saldoAnt) : 0,
       igvNeto,
       irSugerido:            Number(r.pagoIrSugerido ?? 0),
@@ -330,6 +332,8 @@ const totales = computed(() => {
     igvComprasGravadas:  m.reduce((s: number, x: any) => s + x.igvComprasGravadas, 0),
     baseComprasLey:      m.reduce((s: number, x: any) => s + x.baseComprasLey, 0),
     igvComprasLey:       m.reduce((s: number, x: any) => s + x.igvComprasLey, 0),
+    detraccionVentas:   m.reduce((s: number, x: any) => s + x.detraccionVentas, 0),
+    detraccionCompras:  m.reduce((s: number, x: any) => s + x.detraccionCompras, 0),
     igvNeto:            m.reduce((s: number, x: any) => s + (x.igvNeto > 0 ? x.igvNeto : 0), 0),
     irSugerido:         m.reduce((s: number, x: any) => s + x.irSugerido, 0),
     pagoIgv:            m.reduce((s: number, x: any) => s + x.pagoIgvEfectuado, 0),
@@ -433,6 +437,26 @@ const allColumns = [
     textColor: 'text-red-700 dark:text-red-300 font-semibold',
   },
   {
+    // La detracción no tiene casilla en el 0621: la operación se declara
+    // completa. Estas dos columnas miden caja, no impuesto.
+    key: 'detraccionVentas',
+    label: 'Detracc. Ventas',
+    casilla: null,
+    thBg: '',
+    tdBg: '',
+    textColor: 'text-amber-700 dark:text-amber-300',
+    soloConDetraccion: true,
+  },
+  {
+    key: 'detraccionCompras',
+    label: 'Detracc. Compras',
+    casilla: null,
+    thBg: '',
+    tdBg: '',
+    textColor: 'text-amber-700 dark:text-amber-300',
+    soloConDetraccion: true,
+  },
+  {
     key: 'saldoFavorAnterior',
     soloConIgv: true,
     label: 'Saldo Ant.',
@@ -504,6 +528,11 @@ const hayLey31556 = computed(() =>
   meses.value.some((m: any) => m.baseVentasLey > 0 || m.baseComprasLey > 0)
 )
 
+/** ¿Hubo alguna operación sujeta a detracción en el año? */
+const hayDetraccion = computed(() =>
+  meses.value.some((m: any) => m.detraccionVentas !== 0 || m.detraccionCompras !== 0)
+)
+
 /**
  * Columnas que tienen sentido en este contexto: las de IGV desaparecen en NRUS
  * y las de la Ley 31556 solo aparecen si hay operaciones bajo esa norma.
@@ -512,6 +541,7 @@ const columnasDisponibles = computed(() =>
   allColumns.filter((c: any) => {
     if (c.soloConIgv && regimenSpec.value && !regimenSpec.value.aplicaIgv) return false
     if (c.soloConLey31556 && !hayLey31556.value) return false
+    if (c.soloConDetraccion && !hayDetraccion.value) return false
     return true
   })
 )

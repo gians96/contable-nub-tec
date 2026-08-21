@@ -323,6 +323,19 @@ model Voucher {
   inventarioFinal   Boolean           @default(false)
   activoFijo        Boolean           @default(false)
   vidaUtilMeses     Int?
+
+  /// SPOT: la detracción no altera base ni IGV —se declara el comprobante
+  /// completo—, pero sí el neto que se cobra o se paga. Por eso son campos
+  /// aparte y no un descuento sobre el importe.
+  detraccion              Boolean   @default(false)
+  /// Código del anexo de la R.S. 183-2004/SUNAT (ver `shared/utils/detracciones.ts`).
+  detraccionCodigo        String?
+  detraccionPorcentaje    Decimal   @default(0.00) @db.Decimal(5, 2)
+  detraccionMonto         Decimal   @default(0.00) @db.Decimal(12, 2)
+  /// Nº de constancia de depósito en el Banco de la Nación.
+  detraccionConstancia    String?
+  detraccionFechaDeposito DateTime?
+
   observacion       String?           @db.Text
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt

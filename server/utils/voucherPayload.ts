@@ -2,6 +2,7 @@ import type { RegimenIgv } from '@prisma/client'
 import { assertPertenece } from '../database/tenant'
 import { PRESETS_IGV } from '../../shared/utils/regimenes'
 import { calcularBaseEIGV, round2 } from '../../shared/utils/tax'
+import { calcularDetraccion } from '../../shared/utils/detracciones'
 import { loadTaxContext } from './taxContext'
 import type { RequestCtx } from './tenant'
 
@@ -38,6 +39,8 @@ export async function buildVoucherData(ctx: RequestCtx, body: any) {
     baseImponible = calc.baseImponible
     igv = calc.igv
   }
+
+  const detraccion = resolverDetraccion(body, total)
 
   const esVenta = body.tipoMovimiento === 'VENTA'
   const noDeducible = body.destinoTributario === 'NO_DEDUCIBLE'
@@ -77,7 +80,47 @@ export async function buildVoucherData(ctx: RequestCtx, body: any) {
     inventarioFinal: body.inventarioFinal || false,
     activoFijo: body.activoFijo || false,
     vidaUtilMeses: body.vidaUtilMeses || null,
+    ...detraccion,
     observacion: body.observacion || null,
+  }
+}
+
+/**
+ * Campos de la detracción, normalizados.
+ *
+ * El monto se acepta del cliente porque la constancia del Banco de la Nación
+ * manda sobre la aritmética —el depósito va en soles enteros—, pero si no
+ * viene se calcula a partir del porcentaje para que no quede en cero.
+ */
+function resolverDetraccion(body: any, total: number) {
+  if (!body.detraccion) {
+    return {
+      detraccion: false,
+      detraccionCodigo: null,
+      detraccionPorcentaje: 0,
+      detraccionMonto: 0,
+      detraccionConstancia: null,
+      detraccionFechaDeposito: null,
+    }
+  }
+
+  const porcentaje = round2(Number(body.detraccionPorcentaje) || 0)
+  const montoRecibido = body.detraccionMonto != null && body.detraccionMonto !== ''
+    ? Number(body.detraccionMonto)
+    : NaN
+  const monto = Number.isFinite(montoRecibido)
+    ? round2(montoRecibido)
+    : calcularDetraccion(total, porcentaje).monto
+
+  const fecha = body.detraccionFechaDeposito ? new Date(body.detraccionFechaDeposito) : null
+
+  return {
+    detraccion: true,
+    detraccionCodigo: body.detraccionCodigo || null,
+    detraccionPorcentaje: porcentaje,
+    detraccionMonto: monto,
+    detraccionConstancia: body.detraccionConstancia || null,
+    detraccionFechaDeposito: fecha && !Number.isNaN(fecha.getTime()) ? fecha : null,
   }
 }
 

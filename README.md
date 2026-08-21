@@ -5,7 +5,7 @@ Aplicación web para llevar el control de impuestos de una pequeña empresa bajo
 ## Funcionalidades
 
 - **Dashboard** — Resumen visual del año con gráficos de ventas, compras, IGV e IR
-- **Comprobantes** — Registro de ventas y compras con cálculo automático de base imponible e IGV
+- **Comprobantes** — Registro de ventas y compras con cálculo automático de base imponible e IGV; detracciones (SPOT) y notas de crédito en negativo
 - **Resumen Mensual** — IGV neto e IR sugerido mes a mes; referencia a casillas 0621; redondeo tipo SUNAT; columnas configurables; registro de pagos (IGV/IR) y total pagado
 - **Cierre Anual** — Estimación referencial del IR anual y casillas del Formulario Virtual 710
 - **Inventario** — Control de activos fijos con cálculo de depreciación en línea recta
@@ -147,4 +147,6 @@ bash scripts/aislamiento.sh          # 29 pruebas end-to-end (SOLO contra base d
   - RMT: 1% hasta 300 UIT de ingresos netos anuales, luego el mayor entre coeficiente y 1,5%. Anual: 10% hasta 15 UIT de renta neta, 29,5% sobre el exceso.
   - RG: el mayor entre coeficiente y 1,5% mensual; anual 29,5% plano.
 - **IGV por comprobante:** 18% general, o 10% para restaurantes, hoteles y alojamientos turísticos acogidos a la **Ley 31556** (modificada por la Ley 32219: 8% IGV + 2% IPM durante 2025-2026, 12% desde 2027). También 0% para operaciones exoneradas o inafectas.
+- **Detracciones (SPOT):** marcables por comprobante, en ventas y en compras, con código del anexo, porcentaje, monto, constancia de depósito y fecha. **No tocan la base imponible ni el IGV** —la operación se declara completa en el 0621—, solo el neto que se cobra o se paga; el resumen mensual las muestra en dos columnas aparte que aparecen únicamente si hay operaciones detraídas. Las tasas del catálogo son referenciales: SUNAT las cambia por resolución, así que el porcentaje se guarda por comprobante y es editable. En una compra, sin constancia acreditada no se puede usar el crédito fiscal.
+- **Notas de crédito:** se registran con importe negativo, como en el registro de ventas de SUNAT. Es el único tipo de comprobante que admite importes negativos.
 - **Guía de declaración 0621:** `/resumen-mensual` indica casilla por casilla qué poner (100/101 y 154/155 en ventas, 107/108 y 156/157 en compras, 145, 140, 301, 315 y 302) y avisa **antes** de abrir el formulario si el tributo declarado quedaría fuera de la banda que valida SUNAT.

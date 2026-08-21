@@ -49,10 +49,31 @@ export function validateVoucherInput(body: any): { valid: boolean; errors: strin
     }
   }
 
+  // La detracción es una forma de pago, no un tributo: no puede superar al
+  // comprobante ni ir en sentido contrario.
+  if (body.detraccion) {
+    const porcentaje = Number(body.detraccionPorcentaje)
+    const monto = Number(body.detraccionMonto)
+
+    if (!Number.isFinite(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
+      errors.push('El porcentaje de detracción debe estar entre 0 y 100')
+    }
+
+    if (!Number.isFinite(monto) || monto === 0) {
+      errors.push('El monto de la detracción es obligatorio y distinto de 0')
+    } else if (Number.isFinite(total) && total !== 0) {
+      if (Math.abs(monto) > Math.abs(total)) {
+        errors.push('La detracción no puede superar el importe total del comprobante')
+      }
+      if (Math.sign(monto) !== Math.sign(total)) {
+        errors.push('La detracción debe tener el mismo signo que el importe total')
+      }
+    }
+  }
+
   // En modo manual el usuario escribe base e IGV a mano. Sin este control, un
   // comprobante descuadrado desajusta en silencio el resumen mensual y el 0621.
   if (body.modoManual && body.baseImponible != null) {
-    const total = Number(body.importeTotal)
     const suma = Number(body.baseImponible) + Number(body.igv || 0)
     if (Number.isFinite(total) && Number.isFinite(suma) && Math.abs(round2(suma) - round2(total)) > 0.01) {
       errors.push('En modo manual, base imponible + IGV debe ser igual al importe total')

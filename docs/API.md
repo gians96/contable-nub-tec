@@ -117,6 +117,24 @@ Listado con filtros y paginación.
 ### `POST /api/vouchers`
 Crear comprobante. Calcula automáticamente `baseImponible` e `igv` a partir de `importeTotal` (si `afectoIgv=true` y `modoManual=false`).
 
+**Importes negativos:** solo se admiten con `tipoComprobante = NOTA_CREDITO`, que
+es como el registro de ventas de SUNAT representa una anulación. `importeTotal`
+nunca puede ser 0.
+
+**Detracción (SPOT).** Opcional; no altera `baseImponible` ni `igv`.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `detraccion` | boolean | Activa el resto de campos |
+| `detraccionCodigo` | string? | Código del anexo (ej. `037`) |
+| `detraccionPorcentaje` | number | 0 < tasa ≤ 100 |
+| `detraccionMonto` | number | Distinto de 0, mismo signo que `importeTotal` y no mayor en valor absoluto. Si no se envía, se calcula desde el porcentaje |
+| `detraccionConstancia` | string? | Nº de constancia de depósito |
+| `detraccionFechaDeposito` | string? | Fecha ISO del depósito |
+
+`POST /api/vouchers/duplicate` hereda código y tasa, pero **no** la constancia ni
+la fecha de depósito: identifican un depósito concreto.
+
 ### `GET /api/vouchers/:id`
 Detalle de un comprobante.
 
@@ -256,7 +274,18 @@ Exportar comprobantes a Excel o CSV.
 
 **Query params:** `year`, `format` (`xlsx` | `csv`)
 
+Además de los campos del comprobante, la exportación incluye las columnas de
+detracción (`Detracción`, `Cód. Detracción`, `% Detracción`, `Monto Detracción`,
+`Constancia Detracción`, `Fecha Depósito Detracción`) y `Neto Cobrado/Pagado`.
+
 ### `POST /api/import`
 Importar comprobantes desde archivo Excel o CSV.
 
 **Body:** `multipart/form-data` con archivo.
+
+Espera el mismo juego de columnas que produce `GET /api/export`, detracción
+incluida. Acepta importes negativos únicamente en filas cuyo `Tipo Comprobante`
+sea `NOTA_CREDITO`.
+
+Para los archivos de propuesta del **SIRE de SUNAT**, que traen otro juego de
+columnas, usa `scripts/importar-sunat.ts` (ver [`scripts/README.md`](../scripts/README.md)).
