@@ -23,7 +23,7 @@
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto py-4">
       <ul class="space-y-1 px-2">
-        <li v-for="item in menuItems" :key="item.path">
+        <li v-for="item in menuVisible" :key="item.path">
           <NuxtLink
             :to="item.path"
             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
@@ -64,6 +64,7 @@ const emit = defineEmits<{ toggle: []; navigate: [] }>()
 
 const route = useRoute()
 const isMobile = useIsMobile()
+const { isAdmin, isSuperadmin } = useAuth()
 
 // Estado efímero del hover. Vive aquí y no en el layout a propósito: el <main>
 // se posiciona con `collapsed`, así que desplegar por hover no mueve la página.
@@ -116,8 +117,19 @@ const menuItems = [
   { path: '/inventario', label: 'Inventario y Activos', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>' },
   { path: '/configuracion', label: 'Configuración', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>' },
   { path: '/importar-exportar', label: 'Importar / Exportar', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>' },
+  { path: '/empresas', label: 'Empresas', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>' },
+  { path: '/auditoria', label: 'Auditoría', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', soloAdmin: true },
+  { path: '/plataforma', label: 'Plataforma', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="6" rx="2"/><rect x="2" y="14" width="20" height="6" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>', soloPlataforma: true },
   { path: '/ayuda', label: 'Ayuda Tributaria', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m.08 4h.01"/></svg>' },
 ]
+
+// El menú se recorta por rol: la auditoría es de administradores y el panel de
+// plataforma solo existe para superadministradores.
+const menuVisible = computed(() => menuItems.filter((item: any) => {
+  if (item.soloAdmin && !isAdmin.value) return false
+  if (item.soloPlataforma && !isSuperadmin.value) return false
+  return true
+}))
 
 function isActive(path: string): boolean {
   if (path === '/') return route.path === '/'

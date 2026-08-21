@@ -1,36 +1,46 @@
-import bcrypt from 'bcryptjs'
+const ROLES = new Set(['OWNER', 'ADMIN', 'CONTADOR', 'LECTOR'])
 
+/** Cambia el rol o el estado de un miembro dentro de la empresa activa. */
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  requireCompanyAdmin(event)
+  const db = requireDb(event)
 
-  const id = Number(getRouterParam(event, 'id'))
+  const userId = Number(getRouterParam(event, 'id'))
   const body = await readBody(event)
 
-  const user = await prisma.user.findUnique({ where: { id } })
-  if (!user) {
-    throw createError({ statusCode: 404, message: 'Usuario no encontrado' })
+  const membership = await db.membership.findFirst({ where: { userId }, include: { user: true } })
+  if (!membership) {
+    throw createError({ statusCode: 404, message: 'Ese usuario no pertenece a esta empresa' })
   }
 
-  const role = body?.role === 'ADMIN' ? 'ADMIN' : body?.role === 'USUARIO' ? 'USUARIO' : user.role
-  const activo = body?.activo != null ? body.activo !== false : user.activo
+  const role = ROLES.has(body?.role) ? body.role : membership.role
+  const activo = body?.activo != null ? body.activo !== false : membership.activo
 
-  // Sin al menos un administrador activo nadie podría volver a gestionar usuarios.
-  const perderiaAdmin = user.role === 'ADMIN' && (role !== 'ADMIN' || !activo)
-  if (perderiaAdmin) {
-    const otrosAdmins = await prisma.user.count({
-      where: { role: 'ADMIN', activo: true, id: { not: id } },
+  // El invariante se cuenta dentro de la empresa: antes se contaban los ADMIN de
+  // toda la plataforma, así que la segunda empresa nunca habría podido cambiar
+  // de propietario.
+  if (membership.role === 'OWNER' && (role !== 'OWNER' || !activo)) {
+    const otros = await db.membership.count({
+      where: { role: 'OWNER', activo: true, userId: { not: userId } },
     })
-    if (otrosAdmins === 0) {
-      throw createError({ statusCode: 400, message: 'Debe quedar al menos un administrador activo' })
+    if (otros === 0) {
+      throw createError({ statusCode: 400, message: 'Debe quedar al menos un propietario activo en la empresa' })
     }
   }
 
-  const data: Record<string, unknown> = { role, activo }
+  const actualizado = await db.membership.update({
+    where: { id: membership.id },
+    data: { role, activo },
+  })
 
-  if ('nombre' in (body ?? {})) data.nombre = body.nombre?.trim() || null
-  if (body?.password) data.passwordHash = bcrypt.hashSync(validarPassword(body.password), 10)
+  await registrarAuditoria(event, 'ACTUALIZAR', 'Membership', membership.id, `${membership.user.username} → ${role}`)
 
-  const actualizado = await prisma.user.update({ where: { id }, data })
-
-  return publicUser(actualizado)
+  return {
+    membershipId: actualizado.id,
+    id: membership.user.id,
+    username: membership.user.username,
+    nombre: membership.user.nombre,
+    role: actualizado.role,
+    activo: actualizado.activo,
+  }
 })

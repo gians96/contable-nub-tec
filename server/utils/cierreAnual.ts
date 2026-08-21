@@ -1,7 +1,7 @@
-import type { PrismaClient } from '@prisma/client'
 import type { CierreAnualResult, ResumenMensual } from '../../shared/types/tax'
 import { calcularCierreAnual, resumirMes, round2 } from '../../shared/utils/tax'
-import { loadTaxContext, type TaxContext, type TaxContextCache } from './taxContext'
+import { loadTaxContext, type TaxContext } from './taxContext'
+import type { RequestCtx } from './tenant'
 
 /**
  * Meses que un activo se deprecia dentro de un ejercicio, respetando su vida
@@ -29,11 +29,8 @@ function mesesDeUsoEnEjercicio(fecha: Date, vidaUtilMeses: number | null, year: 
  * la fila "Depreciación" de /cierre-anual estaba fija en 0 mientras /inventario
  * afirmaba que se sumaba automáticamente.
  */
-export async function depreciacionDelEjercicio(
-  prisma: PrismaClient,
-  year: number
-): Promise<number> {
-  const activos = await prisma.inventoryAsset.findMany({
+export async function depreciacionDelEjercicio(ctx: RequestCtx, year: number): Promise<number> {
+  const activos = await ctx.db.inventoryAsset.findMany({
     where: {
       destinoTributario: 'ACTIVO_FIJO',
       estadoCierre: { not: 'DADO_BAJA' },
@@ -53,7 +50,7 @@ export async function depreciacionDelEjercicio(
 }
 
 export interface CierreAnualComputado {
-  ctx: TaxContext
+  taxContext: TaxContext
   cierre: CierreAnualResult
   resumenes: ResumenMensual[]
   totales: {
@@ -88,18 +85,17 @@ export type CierreCache = Map<number, CierreAnualComputado>
  * así que no sirve como fuente; hay que recomputar.
  */
 export async function computeCierreAnual(
-  prisma: PrismaClient,
-  year: number,
-  caches?: { tax?: TaxContextCache; cierre?: CierreCache }
+  ctx: RequestCtx,
+  year: number
 ): Promise<CierreAnualComputado> {
-  const cached = caches?.cierre?.get(year)
+  const cached = ctx.cierre.get(year)
   if (cached) return cached
 
-  const ctx = await loadTaxContext(prisma, year, caches?.tax)
+  const taxContext = await loadTaxContext(ctx, year)
 
-  const vouchers = await prisma.voucher.findMany({ where: { year } })
-  const saved = await prisma.annualClosure.findUnique({ where: { year } })
-  const savedSummaries = await prisma.monthlySummary.findMany({ where: { year } })
+  const vouchers = await ctx.db.voucher.findMany({ where: { year } })
+  const saved = await ctx.db.annualClosure.findFirst({ where: { year } })
+  const savedSummaries = await ctx.db.monthlySummary.findMany({ where: { year } })
 
   const resumenes: ResumenMensual[] = []
   let ventasBrutas = 0
@@ -111,9 +107,9 @@ export async function computeCierreAnual(
   for (let month = 1; month <= 12; month++) {
     const resumen = resumirMes(vouchers.filter(v => v.month === month), year, month, {
       saldoIgvMesAnterior: saldoAnterior,
-      aplicaIgv: ctx.spec.aplicaIgv,
-      aplicaCreditoFiscal: ctx.spec.aplicaCreditoFiscal,
-      irMonthlyPercent: ctx.irParams.irMonthlyPercent,
+      aplicaIgv: taxContext.spec.aplicaIgv,
+      aplicaCreditoFiscal: taxContext.spec.aplicaCreditoFiscal,
+      irMonthlyPercent: taxContext.irParams.irMonthlyPercent,
     })
     resumenes.push(resumen)
     ventasBrutas += resumen.baseVentas
@@ -126,7 +122,7 @@ export async function computeCierreAnual(
   let pagosCuentaAcumulados = 0
   for (const s of savedSummaries) pagosCuentaAcumulados += Number(s.pagoIrEfectuado)
 
-  const depreciacion = await depreciacionDelEjercicio(prisma, year)
+  const depreciacion = await depreciacionDelEjercicio(ctx, year)
 
   const manuales = {
     descuentos: Number(saved?.descuentos ?? 0),
@@ -140,9 +136,9 @@ export async function computeCierreAnual(
   }
 
   const cierre = calcularCierreAnual({
-    regimen: ctx.spec.code,
-    aplicaTramosIr: ctx.spec.aplicaTramosIr,
-    aplicaIrAnualPlano: ctx.spec.aplicaIrAnualPlano,
+    regimen: taxContext.spec.code,
+    aplicaTramosIr: taxContext.spec.aplicaTramosIr,
+    aplicaIrAnualPlano: taxContext.spec.aplicaIrAnualPlano,
     ventasNetas: round2(ventasBrutas),
     descuentos: manuales.descuentos,
     costoVentas: round2(costoVentas),
@@ -156,15 +152,15 @@ export async function computeCierreAnual(
     pagosCuentaAcumulados: round2(pagosCuentaAcumulados),
     retenciones: manuales.retenciones,
     saldoFavorAnterior: manuales.saldoFavorAnterior,
-    uit: ctx.uit,
-    tramo1Limit: ctx.tramo1Limit,
-    tramo1Rate: ctx.tramo1Rate,
-    tramo2Rate: ctx.tramo2Rate,
-    flatRate: ctx.flatRate,
+    uit: taxContext.uit,
+    tramo1Limit: taxContext.tramo1Limit,
+    tramo1Rate: taxContext.tramo1Rate,
+    tramo2Rate: taxContext.tramo2Rate,
+    flatRate: taxContext.flatRate,
   })
 
   const resultado: CierreAnualComputado = {
-    ctx,
+    taxContext,
     cierre,
     resumenes,
     totales: {
@@ -178,6 +174,6 @@ export async function computeCierreAnual(
     manuales,
   }
 
-  caches?.cierre?.set(year, resultado)
+  ctx.cierre.set(year, resultado)
   return resultado
 }

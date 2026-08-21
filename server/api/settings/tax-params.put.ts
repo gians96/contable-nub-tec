@@ -47,6 +47,8 @@ const DEFAULTS: Record<(typeof CAMPOS_NUMERICOS)[number], number> = {
 const REGIMENES_VALIDOS = new Set(['NRUS', 'RER', 'RMT', 'RG'])
 
 export default defineEventHandler(async (event) => {
+  requireCompanyAdmin(event)
+  const db = requireDb(event)
   const body = await readBody(event)
 
   if (!body.year) {
@@ -84,11 +86,13 @@ export default defineEventHandler(async (event) => {
     cambios.coeficienteManual = valor == null || valor === '' ? null : Number(valor)
   }
 
-  const params = await prisma.taxParameter.upsert({
-    where: { year: Number(body.year) },
+  const params = await db.taxParameter.upsert({
+    where: { companyId_year: { companyId: db.$companyId, year: Number(body.year) } },
     update: cambios,
-    create: { year: Number(body.year), ...DEFAULTS, ...cambios } as any,
+    create: { companyId: db.$companyId, year: Number(body.year), ...DEFAULTS, ...cambios } as any,
   })
+
+  await registrarAuditoria(event, 'ACTUALIZAR', 'TaxParameter', params.id, `Parámetros ${body.year}`)
 
   return params
 })

@@ -94,7 +94,8 @@
 </template>
 
 <script setup lang="ts">
-import type { CasillaGuia, Guia0621 } from '#shared/types/tax'
+import type { CasillaGuia } from '#shared/types/tax'
+import type { Guia0621 } from '#shared/utils/casillas0621'
 
 const props = defineProps<{
   guia: Guia0621 | null
@@ -108,7 +109,7 @@ const grupos = computed(() => {
   if (!props.guia) return []
   const orden: CasillaGuia['tab'][] = ['IGV — Ventas', 'IGV — Compras', 'Determinación', 'Renta']
   return orden
-    .map(tab => ({ tab, casillas: props.guia!.casillas.filter(c => c.tab === tab) }))
+    .map(tab => ({ tab, casillas: props.guia!.casillas.filter((c: CasillaGuia) => c.tab === tab) }))
     .filter(g => g.casillas.length > 0)
 })
 

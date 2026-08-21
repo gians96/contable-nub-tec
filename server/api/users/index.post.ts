@@ -1,7 +1,16 @@
 import bcrypt from 'bcryptjs'
+import { basePrisma } from '../../database/client'
 
+const ROLES = new Set(['OWNER', 'ADMIN', 'CONTADOR', 'LECTOR'])
+
+/**
+ * Alta de un miembro. Sin proveedor de correo hay dos caminos: crear el usuario
+ * con una contraseña temporal, o vincular a alguien que ya existe en la
+ * plataforma (el caso del contador que lleva varias empresas con una cuenta).
+ */
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  requireCompanyAdmin(event)
+  const ctx = requireCtx(event)
   const body = await readBody(event)
 
   const username = String(body?.username ?? '').trim().toLowerCase()
@@ -9,23 +18,53 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'El usuario es obligatorio' })
   }
 
-  const password = validarPassword(body?.password)
-  const role = body?.role === 'ADMIN' ? 'ADMIN' : 'USUARIO'
+  const role = ROLES.has(body?.role) ? body.role : 'LECTOR'
+  await assertCupoUsuarios(ctx)
 
-  const existente = await prisma.user.findUnique({ where: { username } })
-  if (existente) {
-    throw createError({ statusCode: 409, message: 'Ya existe un usuario con ese nombre' })
+  let user = await basePrisma.user.findUnique({ where: { username } })
+  let passwordTemporal: string | null = null
+
+  if (user) {
+    if (body?.vincularExistente !== true) {
+      throw createError({
+        statusCode: 409,
+        message: `Ya existe un usuario "${username}" en la plataforma. Puedes darle acceso a esta empresa.`,
+        data: { code: 'USUARIO_EXISTE' },
+      })
+    }
+  } else {
+    passwordTemporal = typeof body?.password === 'string' && body.password
+      ? validarPassword(body.password)
+      : generarPasswordTemporal()
+
+    user = await basePrisma.user.create({
+      data: {
+        username,
+        nombre: body?.nombre?.trim() || null,
+        passwordHash: bcrypt.hashSync(passwordTemporal, 10),
+      },
+    })
   }
 
-  const user = await prisma.user.create({
-    data: {
-      username,
-      nombre: body?.nombre?.trim() || null,
-      passwordHash: bcrypt.hashSync(password, 10),
-      role,
-      activo: body?.activo !== false,
-    },
+  const yaEsMiembro = await ctx.db.membership.findFirst({ where: { userId: user.id } })
+  if (yaEsMiembro) {
+    throw createError({ statusCode: 409, message: 'Ese usuario ya pertenece a esta empresa' })
+  }
+
+  const membership = await ctx.db.membership.create({
+    data: { companyId: ctx.companyId, userId: user.id, role, activo: true },
   })
 
-  return publicUser(user)
+  await registrarAuditoria(event, 'CREAR', 'Membership', membership.id, `${username} como ${role}`)
+
+  // La contraseña temporal se devuelve una sola vez: no se guarda en claro.
+  return {
+    membershipId: membership.id,
+    id: user.id,
+    username: user.username,
+    nombre: user.nombre,
+    role: membership.role,
+    activo: membership.activo,
+    passwordTemporal,
+  }
 })

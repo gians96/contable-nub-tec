@@ -14,24 +14,24 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const year = Number(query.year) || new Date().getFullYear()
 
-  const caches = { tax: new Map(), cierre: new Map(), debt: new Map() }
-  const ctx = await loadTaxContext(prisma, year, caches.tax)
-  const coeficiente = await resolverCoeficiente(prisma, ctx, caches)
+  const ctx = requireCtx(event)
+  const taxContext = await loadTaxContext(ctx, year)
+  const coeficiente = await resolverCoeficiente(ctx, taxContext)
 
-  const vouchers = await prisma.voucher.findMany({
+  const vouchers = await ctx.db.voucher.findMany({
     where: { year },
     orderBy: { month: 'asc' },
   })
 
   // Resúmenes guardados (para pagos efectuados)
-  const savedSummaries = await prisma.monthlySummary.findMany({ where: { year } })
+  const savedSummaries = await ctx.db.monthlySummary.findMany({ where: { year } })
   const savedMap = new Map(savedSummaries.map(s => [`${s.year}-${s.month}`, s]))
 
   // NRUS no declara IGV, así que tampoco acumula deuda por IGV impago.
-  const debtAccrualActive = ctx.spec.aplicaIgv && year >= IGV_DEBT_ACCRUAL_FROM_YEAR
+  const debtAccrualActive = taxContext.spec.aplicaIgv && year >= IGV_DEBT_ACCRUAL_FROM_YEAR
   let openingIgvDebt = 0
   if (debtAccrualActive && year > IGV_DEBT_ACCRUAL_FROM_YEAR) {
-    openingIgvDebt = await closingIgvDebtAtYearEnd(prisma, year - 1, caches)
+    openingIgvDebt = await closingIgvDebtAtYearEnd(ctx, year - 1)
   }
 
   const summaries = []
@@ -46,20 +46,20 @@ export default defineEventHandler(async (event) => {
 
     const base = resumirMes(monthVouchers, year, month, {
       saldoIgvMesAnterior: saldoAnterior,
-      aplicaIgv: ctx.spec.aplicaIgv,
-      aplicaCreditoFiscal: ctx.spec.aplicaCreditoFiscal,
+      aplicaIgv: taxContext.spec.aplicaIgv,
+      aplicaCreditoFiscal: taxContext.spec.aplicaCreditoFiscal,
     })
 
     ingresosNetosAcum = round2(ingresosNetosAcum + base.baseVentas)
 
     const irMensual = calcularIrMensual({
-      regimen: ctx.spec.code,
+      regimen: taxContext.spec.code,
       baseVentas: base.baseVentas,
       totalVentasMes: base.totalVentas,
       totalComprasMes: base.totalComprasMes,
       ingresosNetosAcumAnio: ingresosNetosAcum,
-      uit: ctx.uit,
-      params: ctx.irParams,
+      uit: taxContext.uit,
+      params: taxContext.irParams,
       coeficiente: coeficiente.valor,
     })
 
@@ -85,8 +85,8 @@ export default defineEventHandler(async (event) => {
       deudaIgvAcum = igvDeudaCierreMes
     }
 
-    const guia = generarGuia0621(resumen, ctx.spec, {
-      tasaGeneral: ctx.igvPercent,
+    const guia = generarGuia0621(resumen, taxContext.spec, {
+      tasaGeneral: taxContext.igvPercent,
       tasaLey31556: tasaLey31556DelMes(monthVouchers),
       porcentajeRentaTexto: coeficiente.origen === 'no-aplica' ? undefined : coeficiente.detalle,
     })
@@ -111,10 +111,10 @@ export default defineEventHandler(async (event) => {
     year,
     igvDebtAccrualFromYear: IGV_DEBT_ACCRUAL_FROM_YEAR,
     igvDebtAccrualActive: debtAccrualActive,
-    regimen: ctx.spec.code,
-    regimenSpec: ctx.spec,
-    igvPercent: ctx.igvPercent,
-    uit: ctx.uit,
+    regimen: taxContext.spec.code,
+    regimenSpec: taxContext.spec,
+    igvPercent: taxContext.igvPercent,
+    uit: taxContext.uit,
     coeficiente,
     summaries,
   }

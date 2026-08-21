@@ -105,10 +105,10 @@ export default defineNuxtConfig({
     },
     hooks: {
       'rollup:before'(_nitro, config) {
-        config.plugins ??= []
-        config.plugins.push({
+        const plugins = (config.plugins ??= []) as any[]
+        plugins.push({
           name: 'fix-windows-drive-letter-esm-imports',
-          generateBundle(_opts, bundle) {
+          generateBundle(_opts: unknown, bundle: Record<string, any>) {
             if (process.platform !== 'win32') return
             for (const chunk of Object.values(bundle)) {
               if (chunk.type === 'chunk' && typeof chunk.code === 'string') {

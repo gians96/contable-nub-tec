@@ -1,5 +1,6 @@
 
 export default defineEventHandler(async (event) => {
+  const ctx = requireCtx(event)
   const body = await readBody(event)
 
   const { valid, errors } = validateInventoryInput(body)
@@ -10,8 +11,11 @@ export default defineEventHandler(async (event) => {
   const total = Number(body.total)
   const year = body.year || new Date(body.fecha).getFullYear()
 
-  const ctx = await loadTaxContext(prisma, year)
-  const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(body, ctx.igvPercent)
+  const taxContext = await loadTaxContext(ctx, year)
+  const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(body, taxContext.igvPercent)
+
+  // El comprobante enlazado tiene que ser de esta empresa.
+  const voucherId = await assertPertenece(ctx.db, 'voucher', body.voucherId || null)
 
   const calc = calcularBaseEIGV(total, afectoIgv, igvPercent)
   const base = body.base != null && body.base !== '' ? Number(body.base) : calc.baseImponible
@@ -23,9 +27,10 @@ export default defineEventHandler(async (event) => {
     depreciacionMensual = Math.round((base / Number(body.vidaUtilMeses)) * 100) / 100
   }
 
-  const asset = await prisma.inventoryAsset.create({
+  const asset = await ctx.db.inventoryAsset.create({
     data: {
-      voucherId: body.voucherId || null,
+      companyId: ctx.companyId,
+      voucherId,
       year,
       fecha: new Date(body.fecha),
       comprobante: body.comprobante || null,
@@ -43,6 +48,8 @@ export default defineEventHandler(async (event) => {
       observaciones: body.observaciones || null,
     },
   })
+
+  await registrarAuditoria(event, 'CREAR', 'InventoryAsset', asset.id, resumenActivo(asset))
 
   return asset
 })

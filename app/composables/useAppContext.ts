@@ -3,11 +3,21 @@ import type { RegimenSpec } from '#shared/types/tax'
 export interface AppContext {
   year: number
   company: {
+    id: number
     ruc: string
     razonSocial: string
     nombreComercial: string | null
     direccion: string | null
     moneda: string
+    estado: 'ACTIVA' | 'SUSPENDIDA'
+    plan: string
+  }
+  companyRole: 'OWNER' | 'ADMIN' | 'CONTADOR' | 'LECTOR'
+  uso: {
+    plan: string
+    planLabel: string
+    vouchers: { usados: number; limite: number | null }
+    usuarios: { usados: number; limite: number | null }
   }
   regimen: string
   regimenSpec: RegimenSpec

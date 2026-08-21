@@ -1,5 +1,6 @@
 
 export default defineEventHandler(async (event) => {
+  const db = requireDb(event)
   const query = getQuery(event)
   const year = query.year ? Number(query.year) : undefined
   const month = query.month ? Number(query.month) : undefined
@@ -17,14 +18,14 @@ export default defineEventHandler(async (event) => {
   if (subcategoria) where.subcategoria = subcategoria
 
   const [vouchers, total] = await Promise.all([
-    prisma.voucher.findMany({
+    db.voucher.findMany({
       where,
       include: { party: true },
       orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.voucher.count({ where }),
+    db.voucher.count({ where }),
   ])
 
   return {

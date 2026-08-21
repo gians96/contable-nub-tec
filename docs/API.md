@@ -2,8 +2,22 @@
 
 Todas las rutas requieren autenticación (cookie `auth_token` con JWT), excepto
 `POST /api/auth/login` y `POST /api/auth/logout`, que son las únicas públicas.
-Las rutas de `/api/users` exigen además rol `ADMIN`, verificado releyendo el
-usuario de la base de datos (los JWT vigentes duran 7 días y no traen el rol).
+
+**Empresa activa.** Toda ruta contable opera sobre la empresa que indica la
+cookie `cp_company`, validada contra `memberships` en cada petición. Si la cookie
+falta, apunta a una empresa ajena o a una membresía inactiva, se cae de forma
+determinista a la primera empresa del usuario — **nunca a una que no sea suya**.
+Sin ninguna membresía: `409 NO_COMPANY`.
+
+La cookie solo se escribe donde hay una respuesta que el navegador ve
+(`login`, `POST /api/session/company`, `POST /api/companies`); el middleware no
+la toca porque en SSR su `Set-Cookie` no llegaría al cliente.
+
+**Roles.** `LECTOR` recibe `403` en cualquier método distinto de GET/HEAD, y una
+empresa `SUSPENDIDA` también — salvo `/api/export`, para que siempre pueda sacar
+su contabilidad. `/api/users` exige `OWNER` o `ADMIN`; `/api/platform/**` exige
+`platformRole = SUPERADMIN`, verificado releyendo el usuario de la base (los JWT
+vigentes duran 7 días y no traen rol).
 
 ## Autenticación
 
@@ -27,6 +41,29 @@ Retorna el usuario actual desde el token.
 
 ---
 
+### `GET|POST /api/companies`
+`GET` lista las empresas del usuario con su rol. `POST` crea una en autoservicio:
+quien la crea queda `OWNER` y la sesión pasa a ella. Valida RUC de 11 dígitos y
+rechaza duplicados.
+
+### `POST /api/session/company`
+`{ companyId }`. Fija la empresa activa. `403` si el usuario no pertenece a ella
+(salvo superadmin).
+
+### `GET /api/audit`
+Registro de auditoría de la empresa activa. Filtros `entidad`, `accion`,
+`userId`, paginado. Exige `OWNER` o `ADMIN`.
+
+### `GET /api/platform/companies` · `PUT /api/platform/companies/:id`
+Todas las empresas con su número de usuarios y comprobantes; permite cambiar
+`estado`, `plan` y cupos. Solo superadmin.
+
+### `GET /api/platform/users` · `PUT /api/platform/users/:id`
+Cuentas de la plataforma; permite activar, desactivar y promover a superadmin.
+Bloquea quedarse sin ningún superadmin activo.
+
+---
+
 ### `POST /api/auth/change-password`
 
 Cambia la contraseña del usuario de la sesión.
@@ -41,17 +78,24 @@ Cambia la contraseña del usuario de la sesión.
 
 ## Usuarios (solo ADMIN)
 
+`/api/users` gestiona **membresías de la empresa activa**, no cuentas globales.
+
 ### `GET /api/users`
-Lista los usuarios. Nunca devuelve `passwordHash`.
+Miembros de la empresa activa. Nunca devuelve `passwordHash`.
 
 ### `POST /api/users`
-`{ username, password, nombre?, role: 'ADMIN' | 'USUARIO', activo? }`. `409` si el usuario ya existe.
+`{ username, nombre?, role, password?, vincularExistente? }`. Si el usuario no
+existe lo crea con una contraseña temporal que se devuelve **una sola vez**. Si
+ya existe responde `409 USUARIO_EXISTE`; repetir con `vincularExistente: true` le
+da acceso a esta empresa conservando su contraseña.
 
 ### `PUT /api/users/:id`
-`{ nombre?, role?, activo?, password? }`. `400` si dejaría al sistema sin ningún administrador activo.
+`{ role?, activo? }` sobre la membresía. `400` si dejaría la empresa sin ningún
+`OWNER` activo.
 
 ### `DELETE /api/users/:id`
-`400` si es el propio usuario o el último administrador activo.
+Quita la membresía; la cuenta sigue existiendo porque puede pertenecer a otras
+empresas. Borrar la cuenta es cosa de `/api/platform/users`.
 
 ---
 

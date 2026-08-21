@@ -1,6 +1,6 @@
-import type { PrismaClient } from '@prisma/client'
 import { resumirMes, round2 } from '../../shared/utils/tax'
-import { loadTaxContext, type TaxContextCache } from './taxContext'
+import { loadTaxContext } from './taxContext'
+import type { RequestCtx } from './tenant'
 
 /**
  * A partir de este año se acumula en la app la deuda por IGV no pagado mes a mes.
@@ -14,37 +14,32 @@ export type IgvDebtCache = Map<number, number>
 
 /**
  * Deuda IGV no pagada al cierre de diciembre de `year` (para abrir el año siguiente).
+ *
+ * La recursión propaga el mismo `ctx`, así que el cliente acotado —y con él la
+ * empresa— viaja intacto a los ejercicios anteriores.
  */
-export async function closingIgvDebtAtYearEnd(
-  prisma: PrismaClient,
-  year: number,
-  caches?: { debt?: IgvDebtCache; tax?: TaxContextCache }
-): Promise<number> {
+export async function closingIgvDebtAtYearEnd(ctx: RequestCtx, year: number): Promise<number> {
   if (year < IGV_DEBT_ACCRUAL_FROM_YEAR) return 0
 
-  const cached = caches?.debt?.get(year)
+  const cached = ctx.debt.get(year)
   if (cached != null) return cached
 
-  const ctx = await loadTaxContext(prisma, year, caches?.tax)
+  const taxContext = await loadTaxContext(ctx, year)
 
   // Sin IGV (NRUS) no hay deuda que acumular en el ejercicio.
-  if (!ctx.spec.aplicaIgv) {
+  if (!taxContext.spec.aplicaIgv) {
     const heredada =
-      year === IGV_DEBT_ACCRUAL_FROM_YEAR
-        ? 0
-        : await closingIgvDebtAtYearEnd(prisma, year - 1, caches)
-    caches?.debt?.set(year, heredada)
+      year === IGV_DEBT_ACCRUAL_FROM_YEAR ? 0 : await closingIgvDebtAtYearEnd(ctx, year - 1)
+    ctx.debt.set(year, heredada)
     return heredada
   }
 
-  const vouchers = await prisma.voucher.findMany({ where: { year } })
-  const savedSummaries = await prisma.monthlySummary.findMany({ where: { year } })
+  const vouchers = await ctx.db.voucher.findMany({ where: { year } })
+  const savedSummaries = await ctx.db.monthlySummary.findMany({ where: { year } })
   const savedMap = new Map(savedSummaries.map(s => [s.month, s]))
 
   const openingDebt =
-    year === IGV_DEBT_ACCRUAL_FROM_YEAR
-      ? 0
-      : await closingIgvDebtAtYearEnd(prisma, year - 1, caches)
+    year === IGV_DEBT_ACCRUAL_FROM_YEAR ? 0 : await closingIgvDebtAtYearEnd(ctx, year - 1)
 
   let saldoCredito = 0
   let deuda = openingDebt
@@ -53,8 +48,8 @@ export async function closingIgvDebtAtYearEnd(
     const monthVouchers = vouchers.filter(v => v.month === month)
     const resumen = resumirMes(monthVouchers, year, month, {
       saldoIgvMesAnterior: saldoCredito,
-      aplicaIgv: ctx.spec.aplicaIgv,
-      aplicaCreditoFiscal: ctx.spec.aplicaCreditoFiscal,
+      aplicaIgv: taxContext.spec.aplicaIgv,
+      aplicaCreditoFiscal: taxContext.spec.aplicaCreditoFiscal,
     })
     saldoCredito = resumen.saldoIgvMes
     const pagoIgv = Number(savedMap.get(month)?.pagoIgvEfectuado ?? 0)
@@ -62,6 +57,6 @@ export async function closingIgvDebtAtYearEnd(
     deuda = Math.max(0, round2(antesPago - pagoIgv))
   }
 
-  caches?.debt?.set(year, deuda)
+  ctx.debt.set(year, deuda)
   return deuda
 }

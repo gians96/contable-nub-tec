@@ -334,3 +334,60 @@ Cada click en un ítem del menú alternaba el estado del sidebar en escritorio.
 
 ### Solución
 Separar los eventos: `toggle` lo emite solo el botón de colapsar; `navigate` lo emiten los links y el layout únicamente cierra el drawer si `isMobile`. El estado pasó a `useCookie` para sobrevivir a las recargas y resolverse ya en SSR.
+
+---
+
+## BUG-013: Acceso directo por id sin comprobar la empresa (IDOR)
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Crítico |
+| **Afecta** | 14 puntos: `vouchers/[id].{get,put,delete}`, `duplicate.post`, `inventory-assets/[id].{put,delete}`, `users/[id].{put,delete}` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+Con una sola empresa no se notaba. Al pasar a multi-empresa, `GET /api/vouchers/42` habría servido el comprobante 42 fuera cual fuera su dueño, y `PUT`/`DELETE` lo habrían modificado o borrado.
+
+### Causa
+Todos operaban con `where: { id }` desnudo, y ningún handler contable leía siquiera `event.context.auth`: su única defensa era el middleware que verificaba el JWT.
+
+### Solución
+El cliente acotado por empresa inyecta `companyId` en todo `where`, así que un id ajeno simplemente no encuentra fila y el handler responde 404. Verificado en `scripts/aislamiento.sh`, que además comprueba que el registro sigue **intacto** tras el intento: un 404 no basta si el update llegó a tocar la fila.
+
+---
+
+## BUG-014: Claves foráneas que podían cruzar empresas
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Alto |
+| **Afecta** | `server/utils/voucherPayload.ts`, `server/api/inventory-assets/index.post.ts`, `server/api/vouchers/duplicate.post.ts` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+`partyId` y `voucherId` llegaban como números sueltos en el body y se guardaban sin comprobar nada.
+
+### Causa
+Es el hueco que la extensión del cliente Prisma **no** puede tapar: solo ve el primer nivel de `where` y `data`, no puede validar un id escalar ni filtrar un `include`.
+
+### Solución
+`assertPertenece(db, modelo, id)` resuelve la FK con el cliente acotado antes de guardar. `scripts/check-invariants.ts` comprueba sobre los datos ya guardados que ninguna FK cruce empresas, y puede correr contra producción porque solo lee.
+
+---
+
+## BUG-015: `deleteMany()` sin `where` en el seed
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Crítico |
+| **Afecta** | `prisma/seed.ts` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+Cinco `deleteMany()` sin filtro. Con una empresa borraba la demo; con varias habría arrasado la contabilidad de todos los clientes del sistema.
+
+### Solución
+El seed resuelve primero su empresa de demostración por RUC y acota los borrados a ella.

@@ -3,8 +3,8 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const year = Number(query.year) || new Date().getFullYear()
 
-  const caches = { tax: new Map(), cierre: new Map() }
-  const { ctx, cierre, manuales, totales } = await computeCierreAnual(prisma, year, caches)
+  const ctx = requireCtx(event)
+  const { taxContext, cierre, manuales, totales } = await computeCierreAnual(ctx, year)
 
   // Utilidad/pérdida neta antes de cap a 0
   const utilidadNeta = cierre.utilidadContable + cierre.adiciones - cierre.deducciones
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   // Mapeo referencial FV 710 — casillas SUNAT.
   // NRUS y RER no presentan declaración jurada anual de renta empresarial.
   const s = redondeoSunat
-  const fv710 = ctx.spec.aplicaDjAnual
+  const fv710 = taxContext.spec.aplicaDjAnual
     ? {
         // Estado de Resultados
         casilla461: { valor: cierre.ventasNetas, sunat: s(cierre.ventasNetas), desc: 'Ventas netas o ingresos por servicios' },
@@ -42,14 +42,14 @@ export default defineEventHandler(async (event) => {
     ...cierre,
     ventasBrutas: totales.ventasBrutas,
     observaciones: manuales.observaciones,
-    regimenSpec: ctx.spec,
+    regimenSpec: taxContext.spec,
     fv710,
     parametros: {
-      uit: ctx.uit,
-      tramo1Limit: ctx.tramo1Limit,
-      tramo1Rate: ctx.tramo1Rate,
-      tramo2Rate: ctx.tramo2Rate,
-      flatRate: ctx.flatRate,
+      uit: taxContext.uit,
+      tramo1Limit: taxContext.tramo1Limit,
+      tramo1Rate: taxContext.tramo1Rate,
+      tramo2Rate: taxContext.tramo2Rate,
+      flatRate: taxContext.flatRate,
     },
   }
 })

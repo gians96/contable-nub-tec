@@ -35,16 +35,8 @@
           </svg>
         </button>
 
-        <div class="flex min-w-0 flex-1 items-center justify-center gap-2 lg:flex-none lg:justify-start">
-          <span class="max-w-[14rem] truncate text-sm font-semibold text-content sm:max-w-sm" :title="titulo">
-            {{ titulo }}
-          </span>
-          <span
-            class="hidden shrink-0 rounded-md bg-surface-muted px-2 py-0.5 text-xs font-medium text-content-muted sm:inline"
-            :title="context?.regimenSpec?.descripcion"
-          >
-            {{ regimenLabel }}
-          </span>
+        <div class="flex min-w-0 flex-1 items-center justify-center lg:flex-none lg:justify-start">
+          <LayoutCompanySwitcher />
         </div>
 
         <LayoutUserMenu />
@@ -60,7 +52,7 @@
 
 <script setup lang="ts">
 const isMobile = useIsMobile()
-const { context, titulo, regimenLabel } = useAppContext()
+useAppContext()
 
 // Cookie y no ref local: el servidor la lee y el HTML sale ya con el margen
 // correcto, sin el salto de layout al recargar con el menú colapsado.

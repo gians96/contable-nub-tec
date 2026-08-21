@@ -107,7 +107,7 @@
       <!-- Régimen tributario -->
       <SettingsRegimenCard :year="taxYear" @saved="onRegimenGuardado" />
 
-      <!-- Usuarios (solo administradores) -->
+      <!-- Miembros de la empresa (solo administradores) -->
       <SettingsUsersCard v-if="isAdmin" />
     </div>
   </div>

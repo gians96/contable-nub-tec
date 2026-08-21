@@ -173,6 +173,17 @@ Comprobante registrado
 
 ## Convenciones
 
+- **Aislamiento multi-empresa**: el cliente Prisma sin acotar vive en
+  `server/database/client.ts`, **fuera** de `server/utils/`, para que no se
+  auto-importe: usarlo exige un `import` explícito. Los handlers piden
+  `requireDb(event)` / `requireCtx(event)`, que devuelven un cliente extendido
+  (`server/database/tenant.ts`) que inyecta `companyId` en cada operación y
+  **lanza** ante cualquiera que no sepa acotar, incluidas las consultas crudas.
+  El tipo `TenantDb` va marcado para que el cliente sin acotar no sea
+  estructuralmente asignable. Lo que la extensión no cubre —FKs escalares e
+  `include`— se cubre con `assertPertenece` y con
+  `scripts/check-invariants.ts`. Si algún día se usa `defineCachedEventHandler`,
+  su `getKey` **tiene que incluir `companyId`**.
 - **Auto-imports**: Nuxt auto-importa `server/utils/`, `app/composables/`, `app/components/` y —en **ambos** bundles— `shared/utils/` y `shared/types/` (no recursivo; el resto de `shared/` con el alias `#shared`). El código de `shared/` no puede importar Vue ni Nitro.
 - **Naming**: API routes usan kebab-case, modelos PascalCase, tablas snake_case
 - **Prisma**: Output personalizado en `generated/prisma/` (gitignored)

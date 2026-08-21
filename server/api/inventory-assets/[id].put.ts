@@ -1,14 +1,15 @@
 export default defineEventHandler(async (event) => {
+  const ctx = requireCtx(event)
   const id = Number(getRouterParam(event, 'id'))
   const body = await readBody(event)
 
-  const existing = await prisma.inventoryAsset.findUnique({ where: { id } })
+  const existing = await ctx.db.inventoryAsset.findFirst({ where: { id } })
   if (!existing) {
     throw createError({ statusCode: 404, message: 'Activo no encontrado' })
   }
 
   const total = body.total != null && body.total !== '' ? Number(body.total) : Number(existing.total)
-  const ctx = await loadTaxContext(prisma, existing.year)
+  const taxContext = await loadTaxContext(ctx, existing.year)
 
   // La tasa cae al valor guardado si el formulario no la envía, para que editar
   // la descripción de un activo al 10% no lo devuelva al 18%.
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
       igvPercent: body.igvPercent ?? Number(existing.igvPercent),
       regimenIgv: body.regimenIgv ?? existing.regimenIgv,
     },
-    ctx.igvPercent
+    taxContext.igvPercent
   )
 
   // Antes base/igv solo se recalculaban si el body los traía, y el formulario de
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     depreciacionMensual = Math.round((base / vidaUtilMeses) * 100) / 100
   }
 
-  const asset = await prisma.inventoryAsset.update({
+  const asset = await ctx.db.inventoryAsset.update({
     where: { id },
     data: {
       descripcion: body.descripcion,
@@ -53,6 +54,8 @@ export default defineEventHandler(async (event) => {
       observaciones: body.observaciones || null,
     },
   })
+
+  await registrarAuditoria(event, 'ACTUALIZAR', 'InventoryAsset', id, resumenActivo(asset))
 
   return asset
 })

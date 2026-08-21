@@ -28,7 +28,8 @@
         <p class="truncate text-sm font-semibold text-content">{{ user?.nombre || user?.username }}</p>
         <div class="mt-1 flex items-center gap-2">
           <span class="truncate text-xs text-content-muted">&#64;{{ user?.username }}</span>
-          <UiBadge :variant="isAdmin ? 'blue' : 'gray'">{{ isAdmin ? 'Administrador' : 'Usuario' }}</UiBadge>
+          <UiBadge v-if="companyRole" :variant="isAdmin ? 'blue' : 'gray'">{{ NOMBRES_ROL[companyRole] }}</UiBadge>
+          <UiBadge v-if="isSuperadmin" variant="purple">Superadmin</UiBadge>
         </div>
       </div>
 
@@ -70,6 +71,13 @@
           Cambiar contraseña
         </button>
 
+        <NuxtLink to="/empresas" class="menu-item" role="menuitem" @click="abierto = false">
+          <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M15 9h.01M15 13h.01" />
+          </svg>
+          Cambiar de empresa
+        </NuxtLink>
+
         <NuxtLink
           v-if="isAdmin"
           to="/configuracion#usuarios"
@@ -80,7 +88,20 @@
           <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M17 20h5v-2a3 3 0 00-5.36-1.9M9 20H4v-2a3 3 0 015.36-1.9M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          Gestión de usuarios
+          Miembros de la empresa
+        </NuxtLink>
+
+        <NuxtLink
+          v-if="isSuperadmin"
+          to="/plataforma"
+          class="menu-item"
+          role="menuitem"
+          @click="abierto = false"
+        >
+          <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="2" y="4" width="20" height="6" rx="2" /><rect x="2" y="14" width="20" height="6" rx="2" />
+          </svg>
+          Panel de plataforma
         </NuxtLink>
 
         <button
@@ -103,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-const { user, isAdmin, iniciales, logout } = useAuth()
+const { user, isAdmin, isSuperadmin, companyRole, iniciales, logout } = useAuth()
 const { mode, setTheme, opciones } = useTheme()
 
 const abierto = ref(false)

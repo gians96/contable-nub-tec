@@ -1,7 +1,9 @@
-import type { PrismaClient } from '@prisma/client'
+import type { RegimenIgv } from '@prisma/client'
+import { assertPertenece } from '../database/tenant'
 import { PRESETS_IGV } from '../../shared/utils/regimenes'
 import { calcularBaseEIGV, round2 } from '../../shared/utils/tax'
-import { loadTaxContext, type TaxContextCache } from './taxContext'
+import { loadTaxContext } from './taxContext'
+import type { RequestCtx } from './tenant'
 
 /**
  * Construye el payload de un comprobante para crear o editar.
@@ -10,19 +12,20 @@ import { loadTaxContext, type TaxContextCache } from './taxContext'
  * `calcularBaseEIGV`, así que el `igvPercent` configurado nunca llegaba a
  * aplicarse: todo salía al 18%.
  */
-export async function buildVoucherData(
-  prisma: PrismaClient,
-  body: any,
-  cache?: TaxContextCache
-) {
+export async function buildVoucherData(ctx: RequestCtx, body: any) {
   const fecha = new Date(body.fecha)
   const year = Number(body.year) || fecha.getFullYear()
   const month = Number(body.month) || fecha.getMonth() + 1
   const total = Number(body.importeTotal)
 
-  const ctx = await loadTaxContext(prisma, year, cache)
+  const taxContext = await loadTaxContext(ctx, year)
 
-  const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(body, ctx.igvPercent)
+  const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(body, taxContext.igvPercent)
+
+  // El `partyId` llega como número suelto en el body: la extensión del cliente
+  // solo ve el primer nivel de `where`/`data`, así que sin esto se podría
+  // enlazar un comprobante con un proveedor de otra empresa.
+  const partyId = await assertPertenece(ctx.db, 'party', body.partyId || null)
 
   let baseImponible: number
   let igv: number
@@ -45,6 +48,9 @@ export async function buildVoucherData(
     : false
 
   return {
+    // Explícito para satisfacer el tipo de Prisma; la extensión del cliente lo
+    // sobrescribe con la empresa activa, así que no puede apuntar a otra.
+    companyId: ctx.companyId,
     year,
     month,
     fecha,
@@ -52,7 +58,7 @@ export async function buildVoucherData(
     tipoComprobante: body.tipoComprobante || 'FACTURA',
     serie: body.serie || null,
     numero: body.numero || null,
-    partyId: body.partyId || null,
+    partyId,
     rucDni: body.rucDni || null,
     razonSocial: body.razonSocial || null,
     afectoIgv,
@@ -80,7 +86,7 @@ export async function buildVoucherData(
  * implica operación no gravada, y un régimen exonerado implica tasa 0.
  */
 export function resolverTasaIgv(body: any, igvPercentPorDefecto: number) {
-  let regimenIgv: string = body.regimenIgv || (body.afectoIgv === false ? 'EXONERADO' : 'GENERAL')
+  let regimenIgv: RegimenIgv = body.regimenIgv || (body.afectoIgv === false ? 'EXONERADO' : 'GENERAL')
   let afectoIgv = body.afectoIgv !== false
 
   if (regimenIgv === 'EXONERADO' || regimenIgv === 'INAFECTO') afectoIgv = false

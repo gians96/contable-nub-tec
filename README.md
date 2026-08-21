@@ -96,6 +96,45 @@ prisma/
   seed.ts         → Datos de demostración
 ```
 
+## Multi-empresa
+
+Una misma cuenta puede llevar varias empresas, y cada empresa puede tener varios
+usuarios. Se cambia de empresa desde el selector de la barra superior.
+
+**Roles dentro de cada empresa:** `Propietario` manda y no puede quedar la
+empresa sin ninguno · `Administrador` gestiona miembros y configuración ·
+`Contador` registra y edita contabilidad · `Solo lectura` consulta y exporta.
+
+**Plataforma:** un superadministrador ve todas las empresas en `/plataforma`,
+puede suspenderlas (bloquea escrituras pero deja consultar y **exportar** la
+contabilidad) y ajustar plan y cupos. Cualquier usuario puede crear su propia
+empresa desde `/empresas` y queda como propietario.
+
+**Auditoría:** `/auditoria` registra quién creó, editó o eliminó cada registro.
+
+### Aislamiento entre empresas
+
+No depende de que nadie olvide un `where`:
+
+1. **El cliente Prisma sin acotar no se auto-importa.** Vive en
+   `server/database/client.ts`, fuera de `server/utils/`, que es lo único que
+   Nitro escanea. Usarlo exige un `import` explícito visible en el diff.
+2. **`requireDb(event)` devuelve un cliente acotado** que inyecta `companyId` en
+   cada consulta y **lanza** ante cualquier operación que no sepa acotar
+   (incluidas las consultas crudas). Fail-closed: si Prisma añade una operación
+   nueva, salta un error en vez de abrirse una fuga.
+3. **Un tipo marcado** impide pasar el cliente sin acotar donde se espera el
+   acotado, que de otro modo sería estructuralmente compatible.
+
+Comprobaciones:
+
+```bash
+bun run typecheck              # el guard de verdad: sin `prisma` global, todo uso crudo no compila
+bun scripts/check-tenant-schema.ts   # ningún modelo nuevo sin companyId
+bun scripts/check-invariants.ts      # ninguna FK cruza empresas (seguro en producción)
+bash scripts/aislamiento.sh          # 29 pruebas end-to-end (SOLO contra base desechable)
+```
+
 ## Notas
 
 - **IGV:** el **crédito fiscal** (saldo a favor) ya se arrastraba mes a mes aunque no hubiera comprobantes. Desde **2026**, la app acumula además una **deuda referencial** si el IGV pagado es menor al sugerido (sin arrastrar deuda de años anteriores a 2026). No sustituye el estado de cuenta SUNAT ni los intereses moratorios.

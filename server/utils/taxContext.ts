@@ -1,6 +1,6 @@
-import type { PrismaClient } from '@prisma/client'
 import type { IrMensualParams, RegimenSpec } from '../../shared/types/tax'
 import { getRegimenSpec } from '../../shared/utils/regimenes'
+import type { RequestCtx } from './tenant'
 
 /**
  * Parámetros tributarios de un año, ya normalizados a `number` y con el régimen
@@ -48,17 +48,15 @@ function num(valor: unknown, fallback: number): number {
 /** Cache por request: `loadTaxContext` se llama una vez por año y por endpoint. */
 export type TaxContextCache = Map<number, TaxContext>
 
-export async function loadTaxContext(
-  prisma: PrismaClient,
-  year: number,
-  cache?: TaxContextCache
-): Promise<TaxContext> {
-  const cached = cache?.get(year)
+export async function loadTaxContext(ctx: RequestCtx, year: number): Promise<TaxContext> {
+  const cached = ctx.tax.get(year)
   if (cached) return cached
 
-  const p = await prisma.taxParameter.findUnique({ where: { year } })
+  // findFirst y no findUnique: el unique pasó a ser (companyId, year) y el
+  // cliente acotado inyecta el companyId por su cuenta.
+  const p = await ctx.db.taxParameter.findFirst({ where: { year } })
 
-  const ctx: TaxContext = {
+  const resultado: TaxContext = {
     year,
     spec: getRegimenSpec(p?.regimen),
     igvPercent: num(p?.igvPercent, TAX_DEFAULTS.igvPercent),
@@ -82,6 +80,6 @@ export async function loadTaxContext(
     },
   }
 
-  cache?.set(year, ctx)
-  return ctx
+  ctx.tax.set(year, resultado)
+  return resultado
 }

@@ -6,39 +6,56 @@ import { mariaPoolConfigFromDatabaseUrl } from '../server/utils/mariaAdapterOpti
 const adapter = new PrismaMariaDb(mariaPoolConfigFromDatabaseUrl(process.env.DATABASE_URL!))
 const prisma = new PrismaClient({ adapter })
 
+const RUC_DEMO = '20605555153'
+
 async function main() {
   console.log('🌱 Seeding database con datos reales...')
 
-  // ─── Limpiar datos existentes ───────────────────────────
-  await prisma.inventoryAsset.deleteMany()
-  await prisma.voucher.deleteMany()
-  await prisma.monthlySummary.deleteMany()
-  await prisma.annualClosure.deleteMany()
-  await prisma.party.deleteMany()
-  console.log('  ✓ Datos anteriores eliminados')
+  // ─── Empresa de demostración ──────────────────────────
+  // Se resuelve ANTES de borrar nada: con multi-tenant, un deleteMany() sin
+  // `where` arrasaría la contabilidad de todas las empresas del sistema.
+  const company = await prisma.company.upsert({
+    where: { id: (await prisma.company.findFirst({ where: { ruc: RUC_DEMO } }))?.id ?? 0 },
+    update: {},
+    create: {
+      ruc: RUC_DEMO,
+      razonSocial: 'NUBE TECNOLOGICA SOCIEDAD ANONIMA CERRADA',
+      nombreComercial: 'NUBETEC S.A.',
+      direccion: 'Lima, Perú',
+    },
+  })
+  const companyId = company.id
+  console.log(`  ✓ Empresa de demo: ${company.razonSocial} (id ${companyId})`)
+
+  // ─── Limpiar SOLO los datos de esa empresa ─────────────
+  const soloDemo = { where: { companyId } }
+  await prisma.inventoryAsset.deleteMany(soloDemo)
+  await prisma.voucher.deleteMany(soloDemo)
+  await prisma.monthlySummary.deleteMany(soloDemo)
+  await prisma.annualClosure.deleteMany(soloDemo)
+  await prisma.party.deleteMany(soloDemo)
+  console.log('  ✓ Datos anteriores de la empresa de demo eliminados')
 
   // ─── Usuario admin ────────────────────────────────────
   const passwordHash = await bcrypt.hash('admin123', 10)
-  await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: { role: 'ADMIN', activo: true },
-    create: { username: 'admin', passwordHash, nombre: 'Administrador', role: 'ADMIN' },
+    update: { role: 'ADMIN', platformRole: 'SUPERADMIN', activo: true },
+    create: {
+      username: 'admin',
+      passwordHash,
+      nombre: 'Administrador',
+      role: 'ADMIN',
+      platformRole: 'SUPERADMIN',
+    },
   })
-  console.log('  ✓ Usuario: admin / admin123')
 
-  // ─── Empresa ──────────────────────────────────────────
-  const existing = await prisma.companySettings.findFirst()
-  if (!existing) {
-    await prisma.companySettings.create({
-      data: {
-        ruc: '20605555153',
-        razonSocial: 'NUBE TECNOLOGICA SOCIEDAD ANONIMA CERRADA',
-        nombreComercial: 'NUBETEC S.A.',
-        direccion: 'Lima, Perú',
-      },
-    })
-  }
-  console.log('  ✓ Empresa configurada')
+  await prisma.membership.upsert({
+    where: { userId_companyId: { userId: admin.id, companyId } },
+    update: { role: 'OWNER', activo: true },
+    create: { userId: admin.id, companyId, role: 'OWNER' },
+  })
+  console.log('  ✓ Usuario: admin / admin123 (superadmin y propietario de la demo)')
 
   // ─── Parámetros tributarios ───────────────────────────
   for (const p of [
@@ -47,9 +64,10 @@ async function main() {
     { year: 2026, uit: 5350 },
   ]) {
     await prisma.taxParameter.upsert({
-      where: { year: p.year },
+      where: { companyId_year: { companyId, year: p.year } },
       update: {},
       create: {
+        companyId,
         year: p.year,
         uit: p.uit,
         igvPercent: 18,
@@ -92,9 +110,15 @@ async function main() {
 
   for (const p of parties) {
     await prisma.party.upsert({
-      where: { tipoDocumento_numeroDocumento: { tipoDocumento: p.tipoDocumento, numeroDocumento: p.numeroDocumento } },
+      where: {
+        companyId_tipoDocumento_numeroDocumento: {
+          companyId,
+          tipoDocumento: p.tipoDocumento,
+          numeroDocumento: p.numeroDocumento,
+        },
+      },
       update: {},
-      create: p,
+      create: { ...p, companyId },
     })
   }
   console.log(`  ✓ ${parties.length} clientes/proveedores`)
@@ -141,6 +165,7 @@ async function main() {
   for (const v of ventas) {
     await prisma.voucher.create({
       data: {
+        companyId,
         year: v.y, month: v.m,
         fecha: new Date(v.y, v.m - 1, v.dia),
         tipoMovimiento: 'VENTA',
@@ -161,7 +186,7 @@ async function main() {
 
   // ─── COMPRAS ───────────────────────────────────────────
   type Dest = 'GASTO_ADMIN' | 'COSTO_VENTAS' | 'NO_DEDUCIBLE'
-  type Sub = 'OTRO' | 'UTILES' | 'FLETE' | 'MOVILIDAD' | 'EQUIPO_PRUEBAS' | 'SERVIDOR' | 'PRODUCTO'
+  type Sub = 'OTRO' | 'UTILES' | 'FLETE' | 'MOVILIDAD' | 'EQUIPO_PRUEBAS' | 'SERVIDOR' | 'PRODUCTO' | 'INTERNET'
 
   const compras: {
     y: number; m: number; dia: number
@@ -281,6 +306,7 @@ async function main() {
     const noDeducible = c.dest === 'NO_DEDUCIBLE'
     await prisma.voucher.create({
       data: {
+        companyId,
         year: c.y, month: c.m,
         fecha: new Date(c.y, c.m - 1, c.dia),
         tipoMovimiento: 'COMPRA',
@@ -303,6 +329,7 @@ async function main() {
   // Equipos de prueba (JPSystems) — no son para venta
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2025, fecha: new Date(2025, 11, 10),
       comprobante: 'FPP3-1521',
       descripcion: 'Ticketera térmica para pruebas de sistema POS',
@@ -314,6 +341,7 @@ async function main() {
   })
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2025, fecha: new Date(2025, 11, 15),
       comprobante: 'FPP1-7096',
       descripcion: 'Lector de código de barra para pruebas de sistema POS',
@@ -326,6 +354,7 @@ async function main() {
   // Mercadería para venta (Centinela / ISAM)
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2026, fecha: new Date(2026, 0, 20),
       comprobante: 'F001-7741',
       descripcion: 'Cámaras, NVR, SSD, cable UTP (Centinela)',
@@ -337,6 +366,7 @@ async function main() {
   })
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2026, fecha: new Date(2026, 0, 21),
       comprobante: 'F003-2003',
       descripcion: 'Cámaras, NVR, SSD, cable UTP (ISAM)',
@@ -348,6 +378,7 @@ async function main() {
   })
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2026, fecha: new Date(2026, 0, 26),
       comprobante: 'F001-7767',
       descripcion: 'Cámaras y accesorios de seguridad (Centinela)',
@@ -360,6 +391,7 @@ async function main() {
   // Feb 2026 — cámaras para venta (Centinela)
   await prisma.inventoryAsset.create({
     data: {
+      companyId,
       year: 2026, fecha: new Date(2026, 1, 26),
       comprobante: 'F001-7959',
       descripcion: 'Cámaras de seguridad para venta (Centinela)',

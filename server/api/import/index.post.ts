@@ -1,18 +1,19 @@
 import * as XLSX from 'xlsx'
 
 export default defineEventHandler(async (event) => {
+  const ctx = requireCtx(event)
   const formData = await readMultipartFormData(event)
   if (!formData || formData.length === 0) {
     throw createError({ statusCode: 400, message: 'No se recibió ningún archivo' })
   }
 
   const file = formData[0]
-  if (!file.data) {
+  if (!file?.data) {
     throw createError({ statusCode: 400, message: 'Archivo vacío' })
   }
 
   const wb = XLSX.read(file.data, { type: 'buffer' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
+  const ws = wb.Sheets[wb.SheetNames[0]!]!
   const rows: any[] = XLSX.utils.sheet_to_json(ws)
 
   if (rows.length === 0) {
@@ -21,7 +22,12 @@ export default defineEventHandler(async (event) => {
 
   const created: any[] = []
   const errors: string[] = []
-  const taxCache = new Map()
+
+  // Cupo del plan: se comprueba una vez con el lote entero en vez de por fila.
+  const anios = new Set<number>(
+    rows.map(r => Number(r['Año']) || (r['Fecha'] ? new Date(r['Fecha']).getFullYear() : new Date().getFullYear()))
+  )
+  for (const anio of anios) await assertCupoVouchers(event, ctx, anio, rows.length)
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -41,20 +47,21 @@ export default defineEventHandler(async (event) => {
       // La tasa viene del archivo si el export la incluyó; si no, del parámetro
       // del año. Antes se recalculaba siempre al 18% y un round-trip
       // export→import convertía en 18% cualquier comprobante al 10%.
-      const ctx = await loadTaxContext(prisma, year, taxCache)
+      const taxContext = await loadTaxContext(ctx, year)
       const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(
         {
           afectoIgv: row['Afecto IGV'] !== 'NO',
           igvPercent: row['Tasa IGV (%)'],
           regimenIgv: row['Régimen IGV'],
         },
-        ctx.igvPercent
+        taxContext.igvPercent
       )
 
       const { baseImponible, igv } = calcularBaseEIGV(total, afectoIgv, igvPercent)
 
-      const voucher = await prisma.voucher.create({
+      const voucher = await ctx.db.voucher.create({
         data: {
+          companyId: ctx.companyId,
           year,
           month,
           fecha,
@@ -83,6 +90,10 @@ export default defineEventHandler(async (event) => {
     } catch (e: any) {
       errors.push(`Fila ${i + 2}: ${e.message}`)
     }
+  }
+
+  if (created.length) {
+    await registrarAuditoria(event, 'CREAR', 'Voucher', null, `Importación de ${created.length} comprobantes`)
   }
 
   return {

@@ -57,9 +57,42 @@ enum RegimenTributario {
   RG
 }
 
+/// Rol legado de usuario global. Sustituido por `User.platformRole` y
+/// `Membership.role`; se elimina en una migración posterior para no perder la
+/// vuelta atrás mientras el código nuevo se asienta.
 enum UserRole {
   ADMIN
   USUARIO
+}
+
+/// Alcance de plataforma: un SUPERADMIN ve y administra todas las empresas.
+enum PlatformRole {
+  SUPERADMIN
+  USER
+}
+
+/// Rol dentro de una empresa concreta.
+enum CompanyRole {
+  OWNER
+  ADMIN
+  CONTADOR
+  LECTOR
+}
+
+enum CompanyEstado {
+  ACTIVA
+  SUSPENDIDA
+}
+
+enum PlanEmpresa {
+  FREE
+  PRO
+}
+
+enum AuditAccion {
+  CREAR
+  ACTUALIZAR
+  ELIMINAR
 }
 
 enum RegimenIgv {
@@ -109,37 +142,99 @@ enum EstadoCierre {
   INVENTARIO_FINAL
 }
 
-// ─── TABLAS ─────────────────────────────────────────────
+// ─── PLATAFORMA ─────────────────────────────────────────
 
 model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique
+  id           Int          @id @default(autoincrement())
+  username     String       @unique
   passwordHash String
   nombre       String?
-  role         UserRole @default(USUARIO)
-  activo       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  /// Legado; se elimina cuando el rol por empresa lleve tiempo en producción.
+  role         UserRole     @default(USUARIO)
+  platformRole PlatformRole @default(USER)
+  activo       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships Membership[]
+  auditLogs   AuditLog[]
 
   @@map("users")
 }
 
-model CompanySettings {
-  id               Int      @id @default(autoincrement())
-  ruc              String   @default("")
-  razonSocial      String   @default("")
-  nombreComercial  String?
-  direccion        String?
-  moneda           String   @default("PEN")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+/// Empresa = tenant. Hereda la tabla `company_settings`, que era una fila única.
+model Company {
+  id              Int           @id @default(autoincrement())
+  ruc             String        @default("")
+  razonSocial     String        @default("")
+  nombreComercial String?
+  direccion       String?
+  moneda          String        @default("PEN")
+  estado          CompanyEstado @default(ACTIVA)
+  plan            PlanEmpresa   @default(FREE)
+  /// Cupos del plan. `null` = sin límite.
+  limiteVouchersAnual Int?
+  limiteUsuarios      Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  @@map("company_settings")
+  memberships     Membership[]
+  parties         Party[]
+  vouchers        Voucher[]
+  inventoryAssets InventoryAsset[]
+  taxParameters   TaxParameter[]
+  monthlySummaries MonthlySummary[]
+  annualClosures  AnnualClosure[]
+  auditLogs       AuditLog[]
+
+  @@index([estado])
+  @@map("companies")
 }
+
+/// Pertenencia de un usuario a una empresa, con su rol allí.
+model Membership {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId Int
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      CompanyRole @default(LECTOR)
+  activo    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("memberships")
+}
+
+/// Rastro de escrituras sobre datos contables.
+model AuditLog {
+  id        Int         @id @default(autoincrement())
+  companyId Int
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  accion    AuditAccion
+  entidad   String
+  entidadId Int?
+  resumen   String?
+  /// JSON serializado a texto: evita depender del soporte de Json del adapter.
+  datos     String?     @db.Text
+  createdAt DateTime    @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entidad, entidadId])
+  @@map("audit_logs")
+}
+
+// ─── DATOS CONTABLES (por empresa) ──────────────────────
 
 model TaxParameter {
   id                  Int      @id @default(autoincrement())
-  year                Int      @unique
+  companyId           Int
+  company             Company  @relation(fields: [companyId], references: [id])
+  year                Int
   igvPercent          Decimal  @default(18.00) @db.Decimal(5, 2)
   irMonthlyPercent    Decimal  @default(1.00) @db.Decimal(5, 2)
   uit                 Decimal  @db.Decimal(10, 2)
@@ -169,11 +264,14 @@ model TaxParameter {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  @@unique([companyId, year])
   @@map("tax_parameters")
 }
 
 model Party {
   id               Int           @id @default(autoincrement())
+  companyId        Int
+  company          Company       @relation(fields: [companyId], references: [id])
   tipoDocumento    TipoDocumento @default(RUC)
   numeroDocumento  String
   razonSocial      String
@@ -185,12 +283,14 @@ model Party {
 
   vouchers Voucher[]
 
-  @@unique([tipoDocumento, numeroDocumento])
+  @@unique([companyId, tipoDocumento, numeroDocumento])
   @@map("parties")
 }
 
 model Voucher {
   id                Int               @id @default(autoincrement())
+  companyId         Int
+  company           Company           @relation(fields: [companyId], references: [id])
   year              Int
   month             Int
   fecha             DateTime
@@ -224,7 +324,8 @@ model Voucher {
 
   inventoryAssets InventoryAsset[]
 
-  @@index([year, month])
+  @@index([companyId, year, month])
+  @@index([companyId, fecha])
   @@index([tipoMovimiento])
   @@index([destinoTributario])
   @@map("vouchers")
@@ -232,6 +333,8 @@ model Voucher {
 
 model InventoryAsset {
   id                Int                 @id @default(autoincrement())
+  companyId         Int
+  company           Company             @relation(fields: [companyId], references: [id])
   voucherId         Int?
   voucher           Voucher?            @relation(fields: [voucherId], references: [id])
   year              Int
@@ -252,12 +355,14 @@ model InventoryAsset {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  @@index([year])
+  @@index([companyId, year])
   @@map("inventory_assets")
 }
 
 model MonthlySummary {
   id                      Int      @id @default(autoincrement())
+  companyId               Int
+  company                 Company  @relation(fields: [companyId], references: [id])
   year                    Int
   month                   Int
   baseVentas              Decimal  @default(0) @db.Decimal(12, 2)
@@ -282,13 +387,15 @@ model MonthlySummary {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  @@unique([year, month])
+  @@unique([companyId, year, month])
   @@map("monthly_summaries")
 }
 
 model AnnualClosure {
   id                    Int      @id @default(autoincrement())
-  year                  Int      @unique
+  companyId             Int
+  company               Company  @relation(fields: [companyId], references: [id])
+  year                  Int
   ventasNetas           Decimal  @default(0) @db.Decimal(12, 2)
   descuentos            Decimal  @default(0) @db.Decimal(12, 2)
   costoVentas           Decimal  @default(0) @db.Decimal(12, 2)
@@ -310,5 +417,6 @@ model AnnualClosure {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
+  @@unique([companyId, year])
   @@map("annual_closures")
 }

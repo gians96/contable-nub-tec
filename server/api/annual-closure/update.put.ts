@@ -17,6 +17,7 @@ const CAMPOS_NUMERICOS = [
 ] as const
 
 export default defineEventHandler(async (event) => {
+  const db = requireDb(event)
   const body = await readBody(event)
   const { year } = body
 
@@ -43,11 +44,13 @@ export default defineEventHandler(async (event) => {
 
   const defaults = Object.fromEntries(CAMPOS_NUMERICOS.map(c => [c, 0]))
 
-  const closure = await prisma.annualClosure.upsert({
-    where: { year: Number(year) },
+  const closure = await db.annualClosure.upsert({
+    where: { companyId_year: { companyId: db.$companyId, year: Number(year) } },
     update: cambios,
-    create: { year: Number(year), ...defaults, ...cambios },
+    create: { companyId: db.$companyId, year: Number(year), ...defaults, ...cambios } as any,
   })
+
+  await registrarAuditoria(event, 'ACTUALIZAR', 'AnnualClosure', closure.id, `Cierre ${year}`)
 
   return closure
 })

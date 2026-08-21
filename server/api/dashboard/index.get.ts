@@ -9,16 +9,16 @@ export default defineEventHandler(async (event) => {
   const year = Number(query.year) || new Date().getFullYear()
   const currentMonth = query.month ? Number(query.month) : new Date().getMonth() + 1
 
-  const caches = { tax: new Map(), cierre: new Map() }
-  const ctx = await loadTaxContext(prisma, year, caches.tax)
-  const coeficiente = await resolverCoeficiente(prisma, ctx, caches)
+  const ctx = requireCtx(event)
+  const taxContext = await loadTaxContext(ctx, year)
+  const coeficiente = await resolverCoeficiente(ctx, taxContext)
 
   const opcionesMes = {
-    aplicaIgv: ctx.spec.aplicaIgv,
-    aplicaCreditoFiscal: ctx.spec.aplicaCreditoFiscal,
+    aplicaIgv: taxContext.spec.aplicaIgv,
+    aplicaCreditoFiscal: taxContext.spec.aplicaCreditoFiscal,
   }
 
-  const allVouchers = await prisma.voucher.findMany({ where: { year } })
+  const allVouchers = await ctx.db.voucher.findMany({ where: { year } })
 
   // Serie mensual: da a la vez el saldo arrastrado, los ingresos acumulados
   // (umbral de 300 UIT del RMT) y los datos de los gráficos.
@@ -33,13 +33,13 @@ export default defineEventHandler(async (event) => {
     ingresosNetosAcum = round2(ingresosNetosAcum + base.baseVentas)
 
     const irMensual = calcularIrMensual({
-      regimen: ctx.spec.code,
+      regimen: taxContext.spec.code,
       baseVentas: base.baseVentas,
       totalVentasMes: base.totalVentas,
       totalComprasMes: base.totalComprasMes,
       ingresosNetosAcumAnio: ingresosNetosAcum,
-      uit: ctx.uit,
-      params: ctx.irParams,
+      uit: taxContext.uit,
+      params: taxContext.irParams,
       coeficiente: coeficiente.valor,
     })
 
@@ -76,8 +76,8 @@ export default defineEventHandler(async (event) => {
   return {
     year,
     month: currentMonth,
-    regimen: ctx.spec.code,
-    regimenSpec: ctx.spec,
+    regimen: taxContext.spec.code,
+    regimenSpec: taxContext.spec,
     coeficiente,
     // Tarjetas del mes actual
     cards: {

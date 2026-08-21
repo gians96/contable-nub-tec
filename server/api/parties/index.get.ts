@@ -1,5 +1,6 @@
 
 export default defineEventHandler(async (event) => {
+  const db = requireDb(event)
   const query = getQuery(event)
   const search = query.search as string | undefined
 
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
     ]
   }
 
-  const parties = await prisma.party.findMany({
+  const parties = await db.party.findMany({
     where,
     orderBy: { razonSocial: 'asc' },
     take: 100,

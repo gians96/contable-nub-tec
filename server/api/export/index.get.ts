@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 
 export default defineEventHandler(async (event) => {
+  const db = requireDb(event)
   const query = getQuery(event)
   const type = query.type as string || 'vouchers'
   const format = query.format as string || 'xlsx'
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
     const where: any = {}
     if (year) where.year = year
 
-    const vouchers = await prisma.voucher.findMany({
+    const vouchers = await db.voucher.findMany({
       where,
       orderBy: [{ year: 'asc' }, { month: 'asc' }, { fecha: 'asc' }],
     })

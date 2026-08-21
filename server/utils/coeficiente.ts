@@ -1,6 +1,6 @@
-import type { PrismaClient } from '@prisma/client'
-import { computeCierreAnual, type CierreCache } from './cierreAnual'
-import type { TaxContext, TaxContextCache } from './taxContext'
+import { computeCierreAnual } from './cierreAnual'
+import type { TaxContext } from './taxContext'
+import type { RequestCtx } from './tenant'
 
 export interface CoeficienteResuelto {
   valor: number | null
@@ -16,29 +16,28 @@ export interface CoeficienteResuelto {
  * caso en que la empresa ya tiene el dato de su declaración anual presentada.
  */
 export async function resolverCoeficiente(
-  prisma: PrismaClient,
-  ctx: TaxContext,
-  caches?: { tax?: TaxContextCache; cierre?: CierreCache }
+  ctx: RequestCtx,
+  taxContext: TaxContext
 ): Promise<CoeficienteResuelto> {
-  if (!ctx.spec.usaCoeficiente) {
+  if (!taxContext.spec.usaCoeficiente) {
     return {
       valor: null,
       origen: 'no-aplica',
-      detalle: 'El régimen ' + ctx.spec.label + ' no usa coeficiente.',
+      detalle: 'El régimen ' + taxContext.spec.label + ' no usa coeficiente.',
     }
   }
 
-  if (ctx.coeficienteManual != null) {
+  if (taxContext.coeficienteManual != null) {
     return {
-      valor: ctx.coeficienteManual,
+      valor: taxContext.coeficienteManual,
       origen: 'manual',
       detalle: 'Coeficiente ingresado manualmente en Configuración.',
     }
   }
 
-  const prevYear = ctx.year - 1
+  const prevYear = taxContext.year - 1
 
-  const ingresos = await prisma.voucher.aggregate({
+  const ingresos = await ctx.db.voucher.aggregate({
     where: { year: prevYear, tipoMovimiento: 'VENTA' },
     _sum: { baseImponible: true },
   })
@@ -52,7 +51,7 @@ export async function resolverCoeficiente(
     }
   }
 
-  const { cierre } = await computeCierreAnual(prisma, prevYear, caches)
+  const { cierre } = await computeCierreAnual(ctx, prevYear)
   const impuestoAnual = cierre.impuestoAnual
 
   if (impuestoAnual <= 0) {

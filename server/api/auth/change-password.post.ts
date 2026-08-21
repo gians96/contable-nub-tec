@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { basePrisma } from '../../database/client'
 
 /**
  * Cambio de contraseña del usuario de la sesión.
@@ -6,7 +7,7 @@ import bcrypt from 'bcryptjs'
  * la base de datos a mano.
  */
 export default defineEventHandler(async (event) => {
-  const user = await currentUser(event)
+  const user = currentUser(event)
   const body = await readBody(event)
 
   const actual = body?.passwordActual
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'La nueva contraseña debe ser distinta de la actual' })
   }
 
-  await prisma.user.update({
+  await basePrisma.user.update({
     where: { id: user.id },
     data: { passwordHash: bcrypt.hashSync(nueva, 10) },
   })

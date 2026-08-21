@@ -12,9 +12,13 @@
                                   │ InventoryAsset │
                                   └────────────────┘
 
-┌─────────────────┐  ┌────────────────┐  ┌──────────────────┐
-│ CompanySettings │  │  TaxParameter  │  │  MonthlySummary  │
-└─────────────────┘  └────────────────┘  └──────────────────┘
+┌─────────┐     ┌────────────┐
+│ Company │◀────│ Membership │────▶ User
+└────┬────┘     └────────────┘
+     │  (companyId en TODAS las tablas contables)
+     ▼
+  Party · Voucher · InventoryAsset · TaxParameter
+  MonthlySummary · AnnualClosure · AuditLog
 
 ┌─────────────────┐
 │ AnnualClosure   │
@@ -37,8 +41,33 @@ Usuario del sistema.
 | createdAt | DATETIME | — |
 | updatedAt | DATETIME | — |
 
-### `company_settings`
-Datos de la empresa MYPE.
+### `companies`
+Cada fila es un **tenant**. Hereda la tabla `company_settings`, que era una fila
+única leída con `findFirst()` sin `where`.
+
+Además de RUC, razón social, nombre comercial, dirección y moneda:
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| estado | ENUM(ACTIVA, SUSPENDIDA) | Suspendida: se lee y exporta, no se escribe |
+| plan | ENUM(FREE, PRO) | Plan contratado |
+| limiteVouchersAnual | INT? | Cupo de comprobantes por año. `null` = sin límite |
+| limiteUsuarios | INT? | Cupo de miembros activos |
+
+### `memberships`
+Pertenencia de un usuario a una empresa, con su rol allí. `@@unique([userId, companyId])`.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| userId / companyId | INT (FK) | Cascade en ambos lados |
+| role | ENUM(OWNER, ADMIN, CONTADOR, LECTOR) | Rol **dentro de esa empresa** |
+| activo | BOOLEAN | Una membresía inactiva no da acceso |
+
+### `audit_logs`
+Rastro de escrituras. `datos` guarda JSON serializado como texto para no depender
+del soporte de `Json` del adapter de MariaDB.
+
+### `company_settings` (renombrada)
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|

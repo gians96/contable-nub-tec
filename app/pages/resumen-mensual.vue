@@ -272,7 +272,7 @@ const alertasRegimen = computed(() => {
 
 /** Normaliza la respuesta de la API al modelo que usa la tabla */
 const meses = computed(() => {
-  const raw = data.value?.summaries ?? data.value?.months ?? []
+  const raw = data.value?.summaries ?? []
   return raw.map((r: any) => {
     const baseV     = Number(r.baseVentas ?? 0)
     const igvV      = Number(r.igvVentas ?? 0)
