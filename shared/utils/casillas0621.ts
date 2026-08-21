@@ -21,10 +21,6 @@ function enterosEnRango(min: number, max: number): { lo: number; hi: number; hay
   return { lo, hi, hay: lo <= hi }
 }
 
-function soles(valor: number): string {
-  return new Intl.NumberFormat('es-PE', { maximumFractionDigits: 0 }).format(Math.round(valor))
-}
-
 /**
  * Comprueba que el tributo declarado caiga en la banda que exige SUNAT.
  *
@@ -192,7 +188,7 @@ export function generarGuia0621(
       valor: redondeoSunat(resumen.baseVentasLey31556),
       tab: 'IGV — Ventas',
       editable: true,
-      nota: 'Ventas al ' + tasaLey + '% (restaurantes, hoteles y alojamientos turísticos).',
+      nota: 'Tus ventas al ' + tasaLey + '%, si tu empresa está acogida a la Ley 31556.',
     })
     casillas.push({
       casilla: '155',
@@ -254,7 +250,7 @@ export function generarGuia0621(
       valor: redondeoSunat(resumen.baseComprasLey31556),
       tab: 'IGV — Compras',
       editable: true,
-      nota: 'Compras al ' + tasaLey + '% a restaurantes, hoteles y alojamientos acogidos a la ley.',
+      nota: 'Compras en las que el proveedor facturó al ' + tasaLey + '% por estar acogido a la Ley 31556.',
     })
     casillas.push({
       casilla: '157',

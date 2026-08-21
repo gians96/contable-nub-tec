@@ -50,10 +50,10 @@ export function useTheme() {
     onUnmounted(() => media.removeEventListener('change', onChange))
   }
 
-  const opciones: { value: ThemeMode; label: string; icon: string }[] = [
-    { value: 'light', label: 'Claro', icon: '☀' },
-    { value: 'dark', label: 'Oscuro', icon: '☾' },
-    { value: 'system', label: 'Sistema', icon: '⌂' },
+  const opciones: { value: ThemeMode; label: string }[] = [
+    { value: 'light', label: 'Claro' },
+    { value: 'dark', label: 'Oscuro' },
+    { value: 'system', label: 'Sistema' },
   ]
 
   return { mode, resolved, setTheme, opciones }

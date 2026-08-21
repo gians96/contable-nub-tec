@@ -61,6 +61,10 @@ export default defineNuxtConfig({
   },
 
   app: {
+    // Transiciones nativas de Nuxt; los estilos viven en assets/css/main.css.
+    pageTransition: { name: 'page', mode: 'out-in' },
+    layoutTransition: { name: 'layout', mode: 'out-in' },
+
     head: {
       title: 'ContaPYME - Control Tributario',
       meta: [

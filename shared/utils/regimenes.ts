@@ -38,10 +38,13 @@ export const PRESETS_IGV: PresetIgv[] = [
     hint: 'IGV 16% + IPM 2%. Casillas 100/101 en ventas y 107/108 en compras.',
   },
   {
+    // La tasa la aplica quien EMITE el comprobante. En una compra describe al
+    // proveedor, no a la empresa que registra: nombrarlo "Restaurantes y
+    // hoteles" hacía pensar que se estaba clasificando el propio negocio.
     regimen: 'LEY_31556',
     value: 10,
-    label: 'Restaurantes y hoteles (10%)',
-    hint: 'Ley 31556 — IGV 8% + IPM 2%. Casillas 154/155 en ventas y 156/157 en compras.',
+    label: 'Ley 31556 — tasa reducida (10%)',
+    hint: 'IGV 8% + IPM 2%. Casillas 154/155 en ventas y 156/157 en compras.',
   },
   {
     regimen: 'EXONERADO',

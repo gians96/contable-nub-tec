@@ -44,13 +44,14 @@
     <!-- Collapse button (desktop) -->
     <button
       type="button"
-      class="hidden h-12 items-center justify-center border-t border-line text-content-muted hover:bg-surface-muted hover:text-content lg:flex"
+      class="hidden h-12 items-center justify-center gap-2 border-t border-line px-3 text-sm font-medium text-content-muted transition-colors hover:bg-surface-muted hover:text-content lg:flex"
       :title="collapsed ? 'Fijar el menú abierto' : 'Colapsar el menú'"
-      @click="$emit('toggle')"
+      @click="onToggle"
     >
-      <svg class="h-5 w-5 transition-transform" :class="collapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="h-5 w-5 shrink-0 transition-transform duration-300" :class="collapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
       </svg>
+      <span v-if="expanded" class="whitespace-nowrap">{{ collapsed ? 'Fijar abierto' : 'Cerrar menú' }}</span>
     </button>
   </aside>
 </template>
@@ -59,7 +60,7 @@
 const props = defineProps<{ collapsed: boolean }>()
 // `toggle` = el usuario fija el estado desde el botón. `navigate` = siguió un link;
 // solo el móvil debe cerrar el drawer, en desktop la navegación no toca el estado.
-defineEmits<{ toggle: []; navigate: [] }>()
+const emit = defineEmits<{ toggle: []; navigate: [] }>()
 
 const route = useRoute()
 const isMobile = useIsMobile()
@@ -67,14 +68,23 @@ const isMobile = useIsMobile()
 // Estado efímero del hover. Vive aquí y no en el layout a propósito: el <main>
 // se posiciona con `collapsed`, así que desplegar por hover no mueve la página.
 const hovering = ref(false)
+// Al cerrar con el botón el cursor se queda encima del aside; sin esta pausa el
+// hover lo vuelve a desplegar al instante y el botón parece no hacer nada.
+const hoverEnPausa = ref(false)
 let cerrarTimer: ReturnType<typeof setTimeout> | null = null
 
 const expanded = computed(() => !props.collapsed || (hovering.value && !isMobile.value))
 const overlay = computed(() => props.collapsed && expanded.value)
 
+function onToggle() {
+  if (!props.collapsed) hoverEnPausa.value = true
+  hovering.value = false
+  emit('toggle')
+}
+
 function onEnter() {
   // Los navegadores táctiles emiten un mouseenter sintético al tocar.
-  if (isMobile.value) return
+  if (isMobile.value || hoverEnPausa.value) return
   if (cerrarTimer) {
     clearTimeout(cerrarTimer)
     cerrarTimer = null
@@ -84,6 +94,8 @@ function onEnter() {
 
 function onLeave() {
   if (isMobile.value) return
+  // Salir del aside reactiva el hover: el cierre explícito ya surtió efecto.
+  hoverEnPausa.value = false
   // Pequeño retardo para que rozar el borde no produzca parpadeo.
   if (cerrarTimer) clearTimeout(cerrarTimer)
   cerrarTimer = setTimeout(() => {

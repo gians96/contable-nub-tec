@@ -23,12 +23,12 @@
       pero no hay impuesto anual que regularizar.
     </UiAlert>
 
-    <div v-if="pending" class="flex items-center justify-center py-10">
+    <div v-if="cargaInicial" class="flex items-center justify-center py-10">
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
     </div>
 
     <template v-else-if="data && closure">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" :class="{ 'is-refreshing': refrescando }">
         <!-- Panel izquierdo: Resultado -->
         <div class="space-y-4">
           <div class="card">
@@ -150,6 +150,14 @@ const year = ref(currentYear)
 const { data, pending, refresh } = useFetch('/api/annual-closure', {
   query: computed(() => ({ year: year.value })),
 })
+
+/*
+ * `pending` se pone en true también al refrescar tras guardar, y con él la tabla
+ * desaparecía dejando un spinner. El esqueleto solo tiene sentido cuando aún no
+ * hay nada que mostrar; los refrescos posteriores solo atenúan lo que ya está.
+ */
+const cargaInicial = computed(() => pending.value && !data.value)
+const refrescando = computed(() => pending.value && !!data.value)
 
 /** La API devuelve el cierre en plano (`ventasNetas`, …), no bajo `closure` */
 const regimenSpec = computed(() => (data.value as any)?.regimenSpec ?? null)

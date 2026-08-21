@@ -63,13 +63,13 @@
 
     <!-- Tabla -->
     <div class="card overflow-hidden p-0">
-      <div v-if="pending" class="flex items-center justify-center py-16">
+      <div v-if="cargaInicial" class="flex items-center justify-center py-16">
         <div class="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand-600" />
       </div>
       <div v-else-if="!data?.data?.length" class="py-16 text-center text-content-muted">
         No hay comprobantes registrados
       </div>
-      <div v-else class="overflow-x-auto">
+      <div v-else class="overflow-x-auto" :class="{ 'is-refreshing': refrescando }">
         <table class="w-full min-w-[960px] text-sm">
           <thead>
             <tr class="border-b border-line bg-surface-raised/95 text-left text-xs font-semibold uppercase tracking-wide text-content-soft">
@@ -382,6 +382,14 @@ const { data, pending, refresh } = useFetch('/api/vouchers', {
   query: queryParams,
 })
 
+/*
+ * `pending` se pone en true también al refrescar tras guardar, y con él la tabla
+ * desaparecía dejando un spinner. El esqueleto solo tiene sentido cuando aún no
+ * hay nada que mostrar; los refrescos posteriores solo atenúan lo que ya está.
+ */
+const cargaInicial = computed(() => pending.value && !data.value)
+const refrescando = computed(() => pending.value && !!data.value)
+
 function resetFilters() {
   filters.year = ''
   filters.month = ''
@@ -449,8 +457,18 @@ const presetIgv = ref<string>('GENERAL')
 
 const hintIgv = computed(() => {
   const preset = PRESETS_IGV.find(p => p.regimen === presetIgv.value)
-  if (preset) return preset.regimen === 'GENERAL' ? `Tasa vigente: ${igvPorDefecto.value}%` : preset.hint
-  return 'Tasa distinta de las de ley; verifica el comprobante.'
+  if (!preset) return 'Tasa distinta de las de ley; verifica el comprobante.'
+  if (preset.regimen === 'GENERAL') return `Tasa vigente: ${igvPorDefecto.value}%`
+
+  // Quien aplica la tasa reducida es el emisor del comprobante: en una compra es
+  // el proveedor, no tu empresa.
+  if (preset.regimen === 'LEY_31556') {
+    return form.tipoMovimiento === 'VENTA'
+      ? 'Tu empresa está acogida a la Ley 31556 y factura al 10% (8% IGV + 2% IPM). Va a las casillas 154 y 155.'
+      : 'El proveedor —restaurante, hotel o alojamiento turístico acogido a la Ley 31556— factura al 10% (8% IGV + 2% IPM). Va a las casillas 156 y 157.'
+  }
+
+  return preset.hint
 })
 
 function onPresetIgvChange() {

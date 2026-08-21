@@ -11,13 +11,13 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="pending" class="flex items-center justify-center py-20">
+    <div v-if="cargaInicial" class="flex items-center justify-center py-20">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
     </div>
 
     <template v-else-if="data">
       <!-- Stat Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8" :class="{ 'is-refreshing': refrescando }">
         <UiStatCard title="Ventas del mes" :value="data.cards.ventasMes" prefix="S/ " color="green"
           tooltip="Total de ventas facturadas en el mes seleccionado" />
         <UiStatCard title="Compras del mes" :value="data.cards.comprasMes" prefix="S/ " color="red"
@@ -77,6 +77,14 @@ const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 const { data, pending, refresh } = useFetch('/api/dashboard', {
   query: computed(() => ({ year: selectedYear.value })),
 })
+
+/*
+ * `pending` se pone en true también al refrescar tras guardar, y con él la tabla
+ * desaparecía dejando un spinner. El esqueleto solo tiene sentido cuando aún no
+ * hay nada que mostrar; los refrescos posteriores solo atenúan lo que ya está.
+ */
+const cargaInicial = computed(() => pending.value && !data.value)
+const refrescando = computed(() => pending.value && !!data.value)
 
 const regimenSpec = computed(() => (data.value as any)?.regimenSpec ?? null)
 const aplicaIgv = computed(() => regimenSpec.value?.aplicaIgv !== false)
