@@ -38,9 +38,16 @@ export default defineEventHandler(async (event) => {
       const total = Number(row['Importe Total'] || 0)
       const tipoMovimiento = row['Tipo Movimiento'] || 'COMPRA'
       const destinoTributario = row['Destino Tributario'] || 'GASTO_ADMIN'
+      const tipoComprobante = row['Tipo Comprobante'] || 'FACTURA'
 
-      if (total <= 0) {
+      // Las notas de crédito restan y por eso vienen en negativo. El resto de
+      // comprobantes sigue exigiendo un importe positivo.
+      if (!Number.isFinite(total) || total === 0) {
         errors.push(`Fila ${i + 2}: Importe total inválido`)
+        continue
+      }
+      if (total < 0 && tipoComprobante !== 'NOTA_CREDITO') {
+        errors.push(`Fila ${i + 2}: solo una nota de crédito puede tener importe negativo`)
         continue
       }
 

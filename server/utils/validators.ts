@@ -13,8 +13,15 @@ export function validateVoucherInput(body: any): { valid: boolean; errors: strin
     errors.push('Destino tributario es obligatorio')
   }
 
-  if (!body.importeTotal || Number(body.importeTotal) <= 0) {
-    errors.push('Importe total debe ser mayor a 0')
+  // Una nota de crédito resta: se registra en negativo, igual que en el
+  // registro de ventas de SUNAT. El resto de comprobantes sigue en positivo.
+  const total = Number(body.importeTotal)
+  const esNotaCredito = body.tipoComprobante === 'NOTA_CREDITO'
+
+  if (body.importeTotal == null || body.importeTotal === '' || !Number.isFinite(total) || total === 0) {
+    errors.push('Importe total es obligatorio y distinto de 0')
+  } else if (total < 0 && !esNotaCredito) {
+    errors.push('Solo una nota de crédito puede tener importe negativo')
   }
 
   if (!body.fecha) {
