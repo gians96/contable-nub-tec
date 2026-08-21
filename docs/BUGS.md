@@ -254,3 +254,83 @@ await $fetch('/api/auth/me', { headers })
 ```
 
 Ver [ARCHITECTURE.md](ARCHITECTURE.md) (flujo de autenticación).
+
+---
+
+## BUG-009: La tasa de IGV configurada nunca se aplicaba
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Crítico |
+| **Afecta** | Todos los comprobantes, el Resumen Mensual y el Cierre Anual |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+`TaxParameter.igvPercent` existía en la base de datos y era editable en `/configuracion`, pero cambiarlo no alteraba ni un importe. Una boleta de restaurante de S/ 51 acogida a la Ley 31556 (10%) se guardaba como base 43.22 e IGV 7.78 en vez de 46.36 y 4.64, inflando el crédito fiscal.
+
+### Causa
+`calcularBaseEIGV(total, afectoIgv, igvPercent = 18)` aceptaba la tasa como tercer argumento, pero **ninguno de sus cinco call-sites lo pasaba**, así que siempre caía en el default.
+
+### Solución
+La tasa pasó a ser un campo del propio comprobante (`Voucher.igvPercent`) junto con `regimenIgv`, que decide a qué casillas del Formulario 0621 va el importe. El cálculo se centralizó en `server/utils/voucherPayload.ts`, que resuelve la tasa (valor explícito → preset del régimen → default del año) antes de llamar a `calcularBaseEIGV`. Migración `20260821000001_add_igv_percent_to_voucher` con backfill, afinada por `20260821000004_fix_igv_percent_backfill`.
+
+---
+
+## BUG-010: Guardar en `/configuracion` reseteaba las tasas de IR
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Alto |
+| **Afecta** | `app/pages/configuracion.vue`, `server/api/settings/tax-params.put.ts` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+Los inputs de IR mensual y de los tramos anuales eran **inertes**: se podían editar en pantalla, pero al guardar y recargar volvían al valor anterior.
+
+### Causa
+El estado local usaba `irMensualPercent` / `irAnualTramo1` / `irAnualTramo2`, mientras que la API lee y escribe `irMonthlyPercent` / `irAnnualTramo1Rate` / `irAnnualTramo2Rate`. `Object.assign(tax, data)` **añadía** las claves buenas junto a las malas; los `<input>` bindeaban a las malas y el guardado enviaba ambas, ganando las buenas con el valor *cargado*.
+
+### Solución
+Renombrar el estado local para que coincida con las columnas, sustituir el `Object.assign` por asignación campo a campo y añadir el input que faltaba para `irAnnualTramo1Limit`.
+
+---
+
+## BUG-011: Upserts que borraban los campos no enviados
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Alto |
+| **Afecta** | `server/api/annual-closure/update.put.ts`, `server/api/settings/tax-params.put.ts` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+En `/cierre-anual` cada edición de un campo manual dejaba los otros seis en 0.
+
+### Causa
+El `update` del upsert reescribía **cada campo ausente del body** con su default, y la página envía un campo por vez.
+
+### Solución
+Construir el objeto de `update` solo con las claves presentes en el body; los defaults quedan únicamente en el `create`.
+
+---
+
+## BUG-012: El sidebar se colapsaba al navegar en escritorio
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Medio |
+| **Afecta** | `app/components/layout/Sidebar.vue`, `app/layouts/default.vue` |
+| **Fecha** | Agosto 2026 |
+
+### Síntoma
+Cada click en un ítem del menú alternaba el estado del sidebar en escritorio.
+
+### Causa
+`@click="$emit('toggle')"` en cada `NuxtLink`. La intención era cerrar el drawer en móvil, pero se aplicaba a todos los tamaños.
+
+### Solución
+Separar los eventos: `toggle` lo emite solo el botón de colapsar; `navigate` lo emiten los links y el layout únicamente cierra el drawer si `isMobile`. El estado pasó a `useCookie` para sobrevivir a las recargas y resolverse ya en SSR.

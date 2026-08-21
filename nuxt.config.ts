@@ -69,6 +69,22 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Control tributario y financiero para MYPE Perú - Régimen MYPE Tributario' },
       ],
       htmlAttrs: { lang: 'es' },
+      script: [
+        {
+          // El modo "sistema" no puede resolverse en el servidor. Este script
+          // corre antes del primer pintado y evita el destello blanco al
+          // recargar con el tema oscuro activo.
+          tagPosition: 'head',
+          innerHTML: [
+            '(function(){try{',
+            "var m=(document.cookie.match(/(?:^|; )cp-theme=([^;]*)/)||[])[1];",
+            'm=m?decodeURIComponent(m):"system";',
+            'var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);',
+            'document.documentElement.classList.toggle("dark",d);',
+            '}catch(e){}})();',
+          ].join(''),
+        },
+      ],
     },
   },
 

@@ -1,11 +1,11 @@
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-gray-800 mb-1">Ayuda Tributaria</h1>
-    <p class="text-gray-500 text-sm mb-6">Guía rápida sobre impuestos para MYPE en Perú</p>
+    <h1 class="text-2xl font-bold text-content mb-1">Ayuda Tributaria</h1>
+    <p class="text-content-muted text-sm mb-6">Guía rápida sobre impuestos para MYPE en Perú</p>
 
     <div class="space-y-3">
       <AccordionItem v-for="(item, i) in articles" :key="i" :title="item.title">
-        <div v-html="item.content" class="prose prose-sm max-w-none text-gray-600"></div>
+        <div v-html="item.content" class="prose prose-sm max-w-none text-content-soft"></div>
       </AccordionItem>
     </div>
   </div>
@@ -20,19 +20,19 @@ const AccordionItem = defineComponent({
     return () =>
       h('div', { class: 'card overflow-hidden' }, [
         h('button', {
-          class: 'w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors',
+          class: 'w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-raised transition-colors',
           onClick: () => { open.value = !open.value },
         }, [
-          h('span', { class: 'font-semibold text-gray-800' }, props.title),
+          h('span', { class: 'font-semibold text-content' }, props.title),
           h('svg', {
-            class: ['w-5 h-5 text-gray-400 transition-transform', open.value ? 'rotate-180' : ''],
+            class: ['w-5 h-5 text-content-muted transition-transform', open.value ? 'rotate-180' : ''],
             fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24',
           }, [
             h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M19 9l-7 7-7-7' }),
           ]),
         ]),
         open.value
-          ? h('div', { class: 'px-5 pb-5 pt-0 border-t border-gray-100' }, slots.default?.())
+          ? h('div', { class: 'px-5 pb-5 pt-0 border-t border-line' }, slots.default?.())
           : null,
       ])
   },
@@ -56,6 +56,13 @@ const articles = [
     title: '¿Cómo funciona el IGV?',
     content: `
       <p>El IGV (Impuesto General a las Ventas) es del <strong>18%</strong> (16% IGV + 2% IPM) sobre el valor de venta.</p>
+      <p class="mt-2">
+        <strong>Excepción — Ley 31556 (modificada por la Ley 32219):</strong> las MYPE de restaurantes, hoteles y
+        alojamientos turísticos aplican <strong>10%</strong> (8% IGV + 2% IPM) durante 2025 y 2026; sube al 12% desde
+        el 1 de enero de 2027. Estas operaciones se declaran en casillas propias del Formulario 0621:
+        <strong>154 y 155</strong> en ventas, <strong>156 y 157</strong> en compras.
+        En cada comprobante puedes elegir la tasa que corresponde.
+      </p>
       <p><strong>Mecánica:</strong></p>
       <ul>
         <li><strong>IGV de ventas (débito fiscal):</strong> Lo que cobras a tus clientes. Tú lo retienes y lo pagas a SUNAT.</li>

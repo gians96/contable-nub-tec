@@ -1,17 +1,11 @@
-import jwt from 'jsonwebtoken'
-
+/**
+ * Usuario de la sesión actual.
+ *
+ * Se relee de la base de datos en vez de devolver lo que trae el JWT: así el rol
+ * está siempre al día y desactivar a alguien lo expulsa en la siguiente
+ * navegación, sin esperar a que caduque su token de 7 días.
+ */
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, 'auth_token')
-
-  if (!token) {
-    throw createError({ statusCode: 401, message: 'No autenticado' })
-  }
-
-  try {
-    const secret = useRuntimeConfig().authSecret
-    const decoded = jwt.verify(token, secret) as { userId: number; username: string }
-    return { id: decoded.userId, username: decoded.username }
-  } catch {
-    throw createError({ statusCode: 401, message: 'Token inválido o expirado' })
-  }
+  const user = await currentUser(event)
+  return publicUser(user)
 })

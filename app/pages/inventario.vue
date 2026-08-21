@@ -2,8 +2,8 @@
   <div>
     <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">Inventario y Activos Fijos</h1>
-        <p class="text-gray-500 text-sm">Control de bienes duraderos y su depreciación</p>
+        <h1 class="text-2xl font-bold text-content">Inventario y Activos Fijos</h1>
+        <p class="text-content-muted text-sm">Control de bienes duraderos y su depreciación</p>
       </div>
       <button @click="showForm = true; resetForm()" class="btn-primary text-sm">+ Nuevo activo</button>
     </div>
@@ -40,13 +40,13 @@
       <div v-if="pending" class="flex items-center justify-center py-10">
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
       </div>
-      <div v-else-if="!data?.length" class="text-center py-10 text-gray-400">
+      <div v-else-if="!data?.length" class="text-center py-10 text-content-muted">
         No hay activos registrados
       </div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-gray-50 text-gray-600 text-left">
+            <tr class="bg-surface-raised text-content-soft text-left">
               <th class="px-3 py-3 font-medium">Nombre</th>
               <th class="px-3 py-3 font-medium">Categoría</th>
               <th class="px-3 py-3 font-medium">Fecha compra</th>
@@ -59,39 +59,39 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="a in data" :key="a.id" class="border-t border-gray-100 hover:bg-gray-50">
+            <tr v-for="a in data" :key="a.id" class="border-t border-line hover:bg-surface-raised">
               <td class="px-3 py-2.5 font-medium">{{ a.descripcion }}</td>
               <td class="px-3 py-2.5">
                 <UiBadge variant="blue">{{ categoriaNombre(a.categoria) }}</UiBadge>
               </td>
               <td class="px-3 py-2.5">{{ formatDate(a.fecha) }}</td>
               <td class="px-3 py-2.5 text-right">S/ {{ formatMoney(Number(a.total)) }}</td>
-              <td class="px-3 py-2.5 text-right text-gray-500">{{ a.vidaUtilMeses ? `${a.vidaUtilMeses} meses` : '-' }}</td>
-              <td class="px-3 py-2.5 text-right text-amber-700">S/ {{ formatMoney(depAnual(a)) }}</td>
-              <td class="px-3 py-2.5 text-right text-red-600">S/ {{ formatMoney(depAcumulada(a)) }}</td>
-              <td class="px-3 py-2.5 text-right font-medium text-emerald-700">
+              <td class="px-3 py-2.5 text-right text-content-muted">{{ a.vidaUtilMeses ? `${a.vidaUtilMeses} meses` : '-' }}</td>
+              <td class="px-3 py-2.5 text-right text-amber-700 dark:text-amber-300">S/ {{ formatMoney(depAnual(a)) }}</td>
+              <td class="px-3 py-2.5 text-right text-red-600 dark:text-red-400">S/ {{ formatMoney(depAcumulada(a)) }}</td>
+              <td class="px-3 py-2.5 text-right font-medium text-emerald-700 dark:text-emerald-300">
                 S/ {{ formatMoney(Number(a.total) - depAcumulada(a)) }}
               </td>
               <td class="px-3 py-2.5 text-center">
                 <div class="flex items-center justify-center gap-1">
-                  <button @click="editAsset(a)" class="p-1 rounded hover:bg-gray-200" title="Editar">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  <button @click="editAsset(a)" class="p-1 rounded hover:bg-surface-muted" title="Editar">
+                    <svg class="w-4 h-4 text-content-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                   </button>
-                  <button @click="deleteAsset(a.id)" class="p-1 rounded hover:bg-red-100" title="Eliminar">
-                    <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <button @click="deleteAsset(a.id)" class="p-1 rounded hover:bg-red-100 dark:bg-red-500/15" title="Eliminar">
+                    <svg class="w-4 h-4 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>
               </td>
             </tr>
           </tbody>
           <tfoot>
-            <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+            <tr class="border-t-2 border-line-strong bg-surface-raised font-semibold">
               <td class="px-3 py-3" colspan="3">TOTAL</td>
               <td class="px-3 py-3 text-right">S/ {{ formatMoney(totalValor) }}</td>
               <td></td>
-              <td class="px-3 py-3 text-right text-amber-700">S/ {{ formatMoney(totalDepAnual) }}</td>
-              <td class="px-3 py-3 text-right text-red-600">S/ {{ formatMoney(totalDepAcum) }}</td>
-              <td class="px-3 py-3 text-right text-emerald-700">S/ {{ formatMoney(totalValor - totalDepAcum) }}</td>
+              <td class="px-3 py-3 text-right text-amber-700 dark:text-amber-300">S/ {{ formatMoney(totalDepAnual) }}</td>
+              <td class="px-3 py-3 text-right text-red-600 dark:text-red-400">S/ {{ formatMoney(totalDepAcum) }}</td>
+              <td class="px-3 py-3 text-right text-emerald-700 dark:text-emerald-300">S/ {{ formatMoney(totalValor - totalDepAcum) }}</td>
               <td></td>
             </tr>
           </tfoot>
@@ -146,7 +146,7 @@
             <textarea v-model="form.observaciones" class="input-field" rows="2" placeholder="Observaciones opcionales..."></textarea>
           </div>
         </div>
-        <div v-if="formError" class="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{{ formError }}</div>
+        <div v-if="formError" class="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">{{ formError }}</div>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">

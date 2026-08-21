@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const created: any[] = []
   const errors: string[] = []
+  const taxCache = new Map()
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -29,7 +30,6 @@ export default defineEventHandler(async (event) => {
       const year = row['Año'] || fecha.getFullYear()
       const month = row['Mes'] || fecha.getMonth() + 1
       const total = Number(row['Importe Total'] || 0)
-      const afectoIgv = row['Afecto IGV'] !== 'NO'
       const tipoMovimiento = row['Tipo Movimiento'] || 'COMPRA'
       const destinoTributario = row['Destino Tributario'] || 'GASTO_ADMIN'
 
@@ -38,7 +38,20 @@ export default defineEventHandler(async (event) => {
         continue
       }
 
-      const { baseImponible, igv } = calcularBaseEIGV(total, afectoIgv)
+      // La tasa viene del archivo si el export la incluyó; si no, del parámetro
+      // del año. Antes se recalculaba siempre al 18% y un round-trip
+      // export→import convertía en 18% cualquier comprobante al 10%.
+      const ctx = await loadTaxContext(prisma, year, taxCache)
+      const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(
+        {
+          afectoIgv: row['Afecto IGV'] !== 'NO',
+          igvPercent: row['Tasa IGV (%)'],
+          regimenIgv: row['Régimen IGV'],
+        },
+        ctx.igvPercent
+      )
+
+      const { baseImponible, igv } = calcularBaseEIGV(total, afectoIgv, igvPercent)
 
       const voucher = await prisma.voucher.create({
         data: {
@@ -52,6 +65,8 @@ export default defineEventHandler(async (event) => {
           rucDni: row['RUC/DNI'] || null,
           razonSocial: row['Razón Social'] || null,
           afectoIgv,
+          igvPercent,
+          regimenIgv: regimenIgv as any,
           importeTotal: total,
           baseImponible,
           igv,
@@ -60,7 +75,7 @@ export default defineEventHandler(async (event) => {
           destinoTributario,
           subcategoria: row['Subcategoría'] || 'OTRO',
           deducibleIr: row['Deducible IR'] !== 'NO',
-          creditoFiscalIgv: row['Crédito Fiscal'] !== 'NO',
+          creditoFiscalIgv: afectoIgv && row['Crédito Fiscal'] !== 'NO',
           observacion: row['Observación'] || null,
         },
       })

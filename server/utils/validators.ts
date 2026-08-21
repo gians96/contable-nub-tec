@@ -35,6 +35,23 @@ export function validateVoucherInput(body: any): { valid: boolean; errors: strin
     errors.push('Una compra no puede tener destino tributario = VENTA')
   }
 
+  if (body.igvPercent != null && body.igvPercent !== '') {
+    const tasa = Number(body.igvPercent)
+    if (!Number.isFinite(tasa) || tasa < 0 || tasa > 100) {
+      errors.push('La tasa de IGV debe estar entre 0 y 100')
+    }
+  }
+
+  // En modo manual el usuario escribe base e IGV a mano. Sin este control, un
+  // comprobante descuadrado desajusta en silencio el resumen mensual y el 0621.
+  if (body.modoManual && body.baseImponible != null) {
+    const total = Number(body.importeTotal)
+    const suma = Number(body.baseImponible) + Number(body.igv || 0)
+    if (Number.isFinite(total) && Number.isFinite(suma) && Math.abs(round2(suma) - round2(total)) > 0.01) {
+      errors.push('En modo manual, base imponible + IGV debe ser igual al importe total')
+    }
+  }
+
   return { valid: errors.length === 0, errors }
 }
 

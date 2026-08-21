@@ -2,56 +2,106 @@
 
 @import 'tailwindcss';
 
+/* Sustituye al antiguo `darkMode: 'class'`; aquí no hay tailwind.config.js. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
   --color-brand-50: oklch(0.97 0.02 250);
   --color-brand-100: oklch(0.93 0.05 250);
+  --color-brand-200: oklch(0.87 0.08 250);
+  --color-brand-300: oklch(0.78 0.12 250);
   --color-brand-500: oklch(0.55 0.19 250);
   --color-brand-600: oklch(0.48 0.2 250);
   --color-brand-700: oklch(0.42 0.19 250);
+
+  /*
+   * Tokens semánticos. `@theme` emite valores estáticos, así que apuntan a
+   * custom properties: son estas las que cambian con la clase `.dark`, y así
+   * una sola definición tematiza toda la app en lugar de sembrar `dark:` por
+   * cada superficie.
+   */
+  --color-surface: var(--cp-surface);
+  --color-surface-muted: var(--cp-surface-muted);
+  --color-surface-raised: var(--cp-surface-raised);
+  --color-content: var(--cp-content);
+  --color-content-soft: var(--cp-content-soft);
+  --color-content-muted: var(--cp-content-muted);
+  --color-line: var(--cp-line);
+  --color-line-strong: var(--cp-line-strong);
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --cp-surface: oklch(1 0 0);
+    --cp-surface-muted: oklch(0.968 0.007 247.9);
+    --cp-surface-raised: oklch(0.984 0.003 247.9);
+    --cp-content: oklch(0.208 0.042 265.8);
+    --cp-content-soft: oklch(0.446 0.043 257.3);
+    --cp-content-muted: oklch(0.554 0.046 257.4);
+    --cp-line: oklch(0.929 0.013 255.5);
+    --cp-line-strong: oklch(0.869 0.022 252.9);
+  }
+
+  .dark {
+    color-scheme: dark;
+    --cp-surface: oklch(0.279 0.041 260);
+    --cp-surface-muted: oklch(0.208 0.042 265.8);
+    --cp-surface-raised: oklch(0.372 0.044 257.3);
+    --cp-content: oklch(0.968 0.007 247.9);
+    --cp-content-soft: oklch(0.869 0.022 252.9);
+    --cp-content-muted: oklch(0.704 0.04 256.8);
+    --cp-line: oklch(0.372 0.044 257.3);
+    --cp-line-strong: oklch(0.446 0.043 257.3);
+  }
+
   html {
-    @apply font-sans antialiased text-slate-900 bg-slate-100;
+    @apply font-sans antialiased text-content bg-surface-muted;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-line bg-surface p-6 shadow-sm;
   }
 
   .card-elevated {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60;
+    @apply rounded-2xl border border-line bg-surface shadow-md shadow-slate-900/5;
   }
 
   .label-field {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1 block text-sm font-medium text-content-soft;
   }
 
   .label-field-caps {
-    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600;
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-content-muted;
   }
 
   .hint-field {
-    @apply mt-1 text-xs text-slate-500;
+    @apply mt-1 text-xs text-content-muted;
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-slate-400;
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm text-content shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-content-muted;
     @apply focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25;
-    @apply disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500;
+    @apply disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-content-muted;
   }
 
   .select-field {
-    @apply w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 shadow-sm outline-none transition-[border-color,box-shadow];
+    @apply w-full cursor-pointer appearance-none rounded-lg border border-line-strong bg-surface px-3 py-2.5 pr-10 text-sm text-content shadow-sm outline-none transition-[border-color,box-shadow];
     @apply focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25;
-    @apply disabled:cursor-not-allowed disabled:bg-slate-50;
+    @apply disabled:cursor-not-allowed disabled:bg-surface-muted;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.65rem center;
     background-size: 1.15rem;
+  }
+
+  /* El chevron va embebido como SVG, así que no lo alcanzan los tokens de color. */
+  .dark .select-field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
   }
 
   .btn-primary {
@@ -61,8 +111,8 @@
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors;
-    @apply hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2;
+    @apply inline-flex items-center justify-center rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-sm font-semibold text-content-soft shadow-sm transition-colors;
+    @apply hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2;
     @apply disabled:pointer-events-none disabled:opacity-50;
   }
 
@@ -79,10 +129,20 @@
   }
 
   .filter-surface {
-    @apply rounded-xl border border-slate-200 bg-slate-50/95 p-4 shadow-inner shadow-slate-200/40 sm:p-5;
+    @apply rounded-xl border border-line bg-surface-raised p-4 shadow-inner shadow-slate-900/5 sm:p-5;
   }
 
   .form-actions {
-    @apply mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end;
+    @apply mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end;
+  }
+
+  /* Superficie de menú flotante (dropdown del usuario). */
+  .menu-surface {
+    @apply rounded-xl border border-line bg-surface p-1.5 shadow-lg shadow-slate-900/10;
+  }
+
+  .menu-item {
+    @apply flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-content-soft transition-colors;
+    @apply hover:bg-surface-muted hover:text-content;
   }
 }

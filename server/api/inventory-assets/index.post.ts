@@ -8,15 +8,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const total = Number(body.total)
-  let base = Number(body.base || 0)
-  let igv = Number(body.igv || 0)
+  const year = body.year || new Date(body.fecha).getFullYear()
 
-  // Si no se proporcionan base/igv, calcular
-  if (!base) {
-    const calc = calcularBaseEIGV(total, body.afectoIgv !== false)
-    base = calc.baseImponible
-    igv = calc.igv
-  }
+  const ctx = await loadTaxContext(prisma, year)
+  const { afectoIgv, igvPercent, regimenIgv } = resolverTasaIgv(body, ctx.igvPercent)
+
+  const calc = calcularBaseEIGV(total, afectoIgv, igvPercent)
+  const base = body.base != null && body.base !== '' ? Number(body.base) : calc.baseImponible
+  const igv = body.igv != null && body.igv !== '' ? Number(body.igv) : calc.igv
 
   // Calcular depreciación si es activo fijo
   let depreciacionMensual = null
@@ -27,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const asset = await prisma.inventoryAsset.create({
     data: {
       voucherId: body.voucherId || null,
-      year: body.year || new Date(body.fecha).getFullYear(),
+      year,
       fecha: new Date(body.fecha),
       comprobante: body.comprobante || null,
       descripcion: body.descripcion,
@@ -35,6 +34,8 @@ export default defineEventHandler(async (event) => {
       base,
       igv,
       total,
+      igvPercent,
+      regimenIgv: regimenIgv as any,
       destinoTributario: body.destinoTributario || 'GASTO_ADMIN',
       estadoCierre: body.estadoCierre || 'EN_USO',
       vidaUtilMeses: body.vidaUtilMeses || null,

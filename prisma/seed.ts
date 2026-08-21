@@ -21,8 +21,8 @@ async function main() {
   const passwordHash = await bcrypt.hash('admin123', 10)
   await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
-    create: { username: 'admin', passwordHash },
+    update: { role: 'ADMIN', activo: true },
+    create: { username: 'admin', passwordHash, nombre: 'Administrador', role: 'ADMIN' },
   })
   console.log('  ✓ Usuario: admin / admin123')
 
@@ -53,6 +53,7 @@ async function main() {
         year: p.year,
         uit: p.uit,
         igvPercent: 18,
+        regimen: 'RMT',
         irMonthlyPercent: 1,
         irAnnualTramo1Limit: 15,
         irAnnualTramo1Rate: 10,

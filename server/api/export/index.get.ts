@@ -29,6 +29,8 @@ export default defineEventHandler(async (event) => {
       'RUC/DNI': v.rucDni || '',
       'Razón Social': v.razonSocial || '',
       'Afecto IGV': v.afectoIgv ? 'SI' : 'NO',
+      'Tasa IGV (%)': Number(v.igvPercent),
+      'Régimen IGV': v.regimenIgv,
       'Importe Total': Number(v.importeTotal),
       'Base Imponible': Number(v.baseImponible),
       'IGV': Number(v.igv),

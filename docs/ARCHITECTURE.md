@@ -127,8 +127,8 @@ Comprobante registrado
         │
         ▼
 ┌─────────────────────┐
-│ calcularBaseEIGV()  │  Total ÷ 1.18 = Base, Base × 0.18 = IGV
-│ (si afectoIgv=true) │  (o manual si modoManual=true)
+│ calcularBaseEIGV()  │  Base = Total ÷ (1 + tasa/100), IGV = Total − Base
+│ (si afectoIgv=true) │  La tasa sale de voucher.igvPercent (18, 10, 0 o libre)
 └─────────┬───────────┘
           │
           ▼
@@ -173,8 +173,8 @@ Comprobante registrado
 
 ## Convenciones
 
-- **Auto-imports**: Nuxt auto-importa `server/utils/`, `app/composables/`, `app/components/`
+- **Auto-imports**: Nuxt auto-importa `server/utils/`, `app/composables/`, `app/components/` y —en **ambos** bundles— `shared/utils/` y `shared/types/` (no recursivo; el resto de `shared/` con el alias `#shared`). El código de `shared/` no puede importar Vue ni Nitro.
 - **Naming**: API routes usan kebab-case, modelos PascalCase, tablas snake_case
 - **Prisma**: Output personalizado en `generated/prisma/` (gitignored)
-- **Cálculos**: Toda la lógica tributaria vive en `server/utils/calculations.ts`
+- **Cálculos**: Toda la lógica tributaria vive en `shared/utils/` (`tax.ts` el motor, `regimenes.ts` la tabla de regímenes y tasas de IGV, `casillas0621.ts` la guía de declaración, `labels.ts` los nombres de enums). Antes estaba duplicada entre `server/utils/calculations.ts` y `app/composables/useTaxCalculations.ts`, con mapas que ya diferían entre ambas copias; ahora ese composable es solo un adaptador. Lo que necesita Prisma vive en `server/utils/` (`taxContext.ts`, `cierreAnual.ts`, `coeficiente.ts`, `voucherPayload.ts`).
 - **Validación**: Solo en boundarios del sistema (API inputs) via `server/utils/validators.ts`

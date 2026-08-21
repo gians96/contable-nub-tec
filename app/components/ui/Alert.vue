@@ -22,9 +22,9 @@ const props = defineProps<{
 
 const alertClass = computed(() => {
   const types: Record<string, string> = {
-    info: 'bg-blue-50 text-blue-700 border border-blue-200',
-    warning: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-    success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    info: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:border-blue-500/30',
+    warning: 'bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-200 dark:border-yellow-500/30',
+    success: 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/30',
   }
   return types[props.type || 'info']
 })

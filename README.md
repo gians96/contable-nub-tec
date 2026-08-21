@@ -100,5 +100,10 @@ prisma/
 
 - **IGV:** el **crédito fiscal** (saldo a favor) ya se arrastraba mes a mes aunque no hubiera comprobantes. Desde **2026**, la app acumula además una **deuda referencial** si el IGV pagado es menor al sugerido (sin arrastrar deuda de años anteriores a 2026). No sustituye el estado de cuenta SUNAT ni los intereses moratorios.
 - Los cálculos de IR y IGV son **referenciales**. El cálculo oficial lo realiza SUNAT y/o tu contador.
-- RMT: 10% hasta 15 UIT, 29.5% sobre el exceso. Pago a cuenta mensual: 1%.
-- IGV estándar: 18% sobre el valor de venta.
+- **Régimen tributario** configurable por año en `/configuracion`: NRUS, RER, RMT o RG. Gobierna el pago mensual de renta, el cierre anual y qué columnas muestran los reportes.
+  - NRUS: cuota fija por categoría; sin IGV ni declaración anual.
+  - RER: 1,5% mensual de carácter definitivo; sin declaración anual con tramos.
+  - RMT: 1% hasta 300 UIT de ingresos netos anuales, luego el mayor entre coeficiente y 1,5%. Anual: 10% hasta 15 UIT de renta neta, 29,5% sobre el exceso.
+  - RG: el mayor entre coeficiente y 1,5% mensual; anual 29,5% plano.
+- **IGV por comprobante:** 18% general, o 10% para restaurantes, hoteles y alojamientos turísticos acogidos a la **Ley 31556** (modificada por la Ley 32219: 8% IGV + 2% IPM durante 2025-2026, 12% desde 2027). También 0% para operaciones exoneradas o inafectas.
+- **Guía de declaración 0621:** `/resumen-mensual` indica casilla por casilla qué poner (100/101 y 154/155 en ventas, 107/108 y 156/157 en compras, 145, 140, 301, 315 y 302) y avisa **antes** de abrir el formulario si el tributo declarado quedaría fuera de la banda que valida SUNAT.

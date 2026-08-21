@@ -37,54 +37,60 @@ const irSeries = computed(() => [{
   data: props.charts.map(c => c.irSugerido),
 }])
 
-const baseChartOptions = {
-  chart: { toolbar: { show: false }, fontFamily: 'inherit' },
+// ApexCharts pinta sobre canvas/SVG propio y no lee las custom properties del
+// tema, así que el modo se le pasa explícito y se fuerza el re-render con :key.
+const { resolved } = useTheme()
+
+const baseChartOptions = computed(() => ({
+  chart: { toolbar: { show: false }, fontFamily: 'inherit', background: 'transparent' },
+  theme: { mode: resolved.value },
+  grid: { borderColor: resolved.value === 'dark' ? '#475569' : '#e2e8f0' },
   xaxis: { categories: mesesLabels },
   yaxis: { labels: { formatter: (v: number) => `S/ ${Math.round(v)}` } },
   tooltip: { y: { formatter: (v: number) => `S/ ${v.toFixed(2)}` } },
   dataLabels: { enabled: false },
-}
+}))
 
-const ventasChartOptions = {
-  ...baseChartOptions,
+const ventasChartOptions = computed(() => ({
+  ...baseChartOptions.value,
   colors: ['#10B981'],
-}
+}))
 
-const comprasChartOptions = {
-  ...baseChartOptions,
+const comprasChartOptions = computed(() => ({
+  ...baseChartOptions.value,
   colors: ['#EF4444'],
-}
+}))
 
-const igvChartOptions = {
-  ...baseChartOptions,
+const igvChartOptions = computed(() => ({
+  ...baseChartOptions.value,
   colors: ['#3B82F6'],
   stroke: { width: 3, curve: 'smooth' as const },
-}
+}))
 
-const irChartOptions = {
-  ...baseChartOptions,
+const irChartOptions = computed(() => ({
+  ...baseChartOptions.value,
   colors: ['#F59E0B'],
   stroke: { width: 2, curve: 'smooth' as const },
   fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
-}
+}))
 </script>
 
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div :key="resolved" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="card">
-      <h3 class="text-sm font-medium text-gray-500 mb-4">Ventas mensuales</h3>
+      <h3 class="text-sm font-medium text-content-muted mb-4">Ventas mensuales</h3>
       <VueApexChart type="bar" height="280" :options="ventasChartOptions" :series="ventasSeries" />
     </div>
     <div class="card">
-      <h3 class="text-sm font-medium text-gray-500 mb-4">Compras mensuales</h3>
+      <h3 class="text-sm font-medium text-content-muted mb-4">Compras mensuales</h3>
       <VueApexChart type="bar" height="280" :options="comprasChartOptions" :series="comprasSeries" />
     </div>
     <div class="card">
-      <h3 class="text-sm font-medium text-gray-500 mb-4">IGV Neto por mes</h3>
+      <h3 class="text-sm font-medium text-content-muted mb-4">IGV Neto por mes</h3>
       <VueApexChart type="line" height="280" :options="igvChartOptions" :series="igvSeries" />
     </div>
     <div class="card">
-      <h3 class="text-sm font-medium text-gray-500 mb-4">IR Mensual sugerido</h3>
+      <h3 class="text-sm font-medium text-content-muted mb-4">IR Mensual sugerido</h3>
       <VueApexChart type="area" height="280" :options="irChartOptions" :series="irSeries" />
     </div>
   </div>

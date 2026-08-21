@@ -1,46 +1,80 @@
 import { closingIgvDebtAtYearEnd, IGV_DEBT_ACCRUAL_FROM_YEAR } from '../../utils/monthlyIgvDebt'
-import { round2 } from '../../utils/calculations'
+
+/**
+ * Tasa de la Ley 31556 efectivamente usada en el mes.
+ * Se lee de los comprobantes en vez de fijarla, porque la ley sube al 12% en
+ * 2027 y los meses de 2026 deben seguir declarándose al 10%.
+ */
+function tasaLey31556DelMes(vouchers: any[]): number {
+  const conLey = vouchers.find(v => v.regimenIgv === 'LEY_31556' && Number(v.igvPercent) > 0)
+  return conLey ? Number(conLey.igvPercent) : 10
+}
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const year = Number(query.year) || new Date().getFullYear()
 
-  // Obtener parámetros tributarios del año
-  const taxParams = await prisma.taxParameter.findUnique({ where: { year } })
-  const irPercent = taxParams ? Number(taxParams.irMonthlyPercent) : 1
+  const caches = { tax: new Map(), cierre: new Map(), debt: new Map() }
+  const ctx = await loadTaxContext(prisma, year, caches.tax)
+  const coeficiente = await resolverCoeficiente(prisma, ctx, caches)
 
-  // Obtener todos los vouchers del año
   const vouchers = await prisma.voucher.findMany({
     where: { year },
     orderBy: { month: 'asc' },
   })
 
-  // Obtener resúmenes guardados (para pagos efectuados)
-  const savedSummaries = await prisma.monthlySummary.findMany({
-    where: { year },
-  })
+  // Resúmenes guardados (para pagos efectuados)
+  const savedSummaries = await prisma.monthlySummary.findMany({ where: { year } })
   const savedMap = new Map(savedSummaries.map(s => [`${s.year}-${s.month}`, s]))
 
-  const debtAccrualActive = year >= IGV_DEBT_ACCRUAL_FROM_YEAR
+  // NRUS no declara IGV, así que tampoco acumula deuda por IGV impago.
+  const debtAccrualActive = ctx.spec.aplicaIgv && year >= IGV_DEBT_ACCRUAL_FROM_YEAR
   let openingIgvDebt = 0
   if (debtAccrualActive && year > IGV_DEBT_ACCRUAL_FROM_YEAR) {
-    openingIgvDebt = await closingIgvDebtAtYearEnd(prisma, year - 1)
+    openingIgvDebt = await closingIgvDebtAtYearEnd(prisma, year - 1, caches)
   }
 
-  // Calcular resumen por mes
   const summaries = []
   let saldoAnterior = 0
   let deudaIgvAcum = openingIgvDebt
+  // El umbral de las 300 UIT del RMT se mide sobre ingresos ANUALES acumulados,
+  // así que la tasa del pago a cuenta puede cambiar a mitad de año.
+  let ingresosNetosAcum = 0
 
   for (let month = 1; month <= 12; month++) {
     const monthVouchers = vouchers.filter(v => v.month === month)
-    const resumen = resumirMes(monthVouchers, year, month, saldoAnterior, irPercent)
+
+    const base = resumirMes(monthVouchers, year, month, {
+      saldoIgvMesAnterior: saldoAnterior,
+      aplicaIgv: ctx.spec.aplicaIgv,
+      aplicaCreditoFiscal: ctx.spec.aplicaCreditoFiscal,
+    })
+
+    ingresosNetosAcum = round2(ingresosNetosAcum + base.baseVentas)
+
+    const irMensual = calcularIrMensual({
+      regimen: ctx.spec.code,
+      baseVentas: base.baseVentas,
+      totalVentasMes: base.totalVentas,
+      totalComprasMes: base.totalComprasMes,
+      ingresosNetosAcumAnio: ingresosNetosAcum,
+      uit: ctx.uit,
+      params: ctx.irParams,
+      coeficiente: coeficiente.valor,
+    })
+
+    const igvDelPeriodoAPagar = Math.max(0, base.igvNetoMes)
+    const resumen = {
+      ...base,
+      irMensual,
+      pagoIrSugerido: irMensual.monto,
+      pagoTotalSugerido: round2(igvDelPeriodoAPagar + irMensual.monto),
+    }
 
     const saved = savedMap.get(`${year}-${month}`)
     const pagoIgv = saved ? Number(saved.pagoIgvEfectuado) : 0
 
     const igvDeudaInicioMes = deudaIgvAcum
-    const igvDelPeriodoAPagar = Math.max(0, resumen.igvNetoMes)
     let igvDeudaCierreMes = 0
     let igvSugeridoPagoTotal = igvDelPeriodoAPagar
 
@@ -50,6 +84,12 @@ export default defineEventHandler(async (event) => {
       igvDeudaCierreMes = Math.max(0, round2(antesPago - pagoIgv))
       deudaIgvAcum = igvDeudaCierreMes
     }
+
+    const guia = generarGuia0621(resumen, ctx.spec, {
+      tasaGeneral: ctx.igvPercent,
+      tasaLey31556: tasaLey31556DelMes(monthVouchers),
+      porcentajeRentaTexto: coeficiente.origen === 'no-aplica' ? undefined : coeficiente.detalle,
+    })
 
     summaries.push({
       ...resumen,
@@ -61,17 +101,7 @@ export default defineEventHandler(async (event) => {
       igvDeudaInicioMes: round2(igvDeudaInicioMes),
       igvDeudaCierreMes: round2(igvDeudaCierreMes),
       igvSugeridoPagoTotal: round2(igvSugeridoPagoTotal),
-      // Valores redondeados SUNAT
-      sunat: {
-        baseVentas: redondeoSunat(resumen.baseVentas),
-        igvVentas: redondeoSunat(resumen.igvVentas),
-        totalVentas: redondeoSunat(resumen.totalVentas),
-        igvNetoMes: redondeoSunat(resumen.igvNetoMes),
-        pagoIrSugerido: redondeoSunat(resumen.pagoIrSugerido),
-        pagoTotalSugerido: redondeoSunat(resumen.pagoTotalSugerido),
-        igvDeudaCierreMes: redondeoSunat(igvDeudaCierreMes),
-        igvSugeridoPagoTotal: redondeoSunat(igvSugeridoPagoTotal),
-      },
+      guia,
     })
 
     saldoAnterior = resumen.saldoIgvMes
@@ -81,6 +111,11 @@ export default defineEventHandler(async (event) => {
     year,
     igvDebtAccrualFromYear: IGV_DEBT_ACCRUAL_FROM_YEAR,
     igvDebtAccrualActive: debtAccrualActive,
+    regimen: ctx.spec.code,
+    regimenSpec: ctx.spec,
+    igvPercent: ctx.igvPercent,
+    uit: ctx.uit,
+    coeficiente,
     summaries,
   }
 })

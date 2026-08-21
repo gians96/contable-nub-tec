@@ -19,7 +19,7 @@
 Una aplicación web diseñada para que una MYPE peruana pueda:
 
 - **Registrar comprobantes** (facturas, boletas, notas de crédito/débito, recibos de honorarios)
-- **Calcular automáticamente** IGV (18%) e IR mensual (1% de ventas netas)
+- **Calcular automáticamente** el IGV (18% general o 10% Ley 31556, por comprobante) y el pago mensual de renta según el régimen (NRUS, RER, RMT o RG)
 - **Generar resúmenes mensuales** con saldo de IGV arrastrable entre meses
 - **Proyectar el cierre anual** bajo los tramos del RMT (10% hasta 15 UIT, 29.5% por encima)
 - **Gestionar inventario y activos fijos** con depreciación mensual

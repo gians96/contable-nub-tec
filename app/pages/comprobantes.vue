@@ -2,8 +2,8 @@
   <div>
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <header>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Comprobantes</h1>
-        <p class="mt-1 text-sm text-slate-600">Registra tus ventas y compras documento por documento.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-content">Comprobantes</h1>
+        <p class="mt-1 text-sm text-content-soft">Registra tus ventas y compras documento por documento.</p>
       </header>
       <div class="flex flex-shrink-0 flex-wrap gap-2">
         <button type="button" class="btn-secondary text-sm" @click="exportar('xlsx')">Exportar Excel</button>
@@ -16,27 +16,27 @@
     <!-- Filtros -->
     <div class="filter-surface mb-6">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Filtrar</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-content-muted">Filtrar</span>
         <button type="button" class="text-sm font-medium text-brand-600 hover:text-brand-700" @click="resetFilters">
           Limpiar filtros
         </button>
       </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <div class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm">
+        <div class="rounded-lg border border-line/80 bg-surface p-3 shadow-sm">
           <label class="label-field-caps" for="f-year">Año</label>
           <select id="f-year" v-model="filters.year" class="select-field">
             <option value="">Todos</option>
             <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
           </select>
         </div>
-        <div class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm">
+        <div class="rounded-lg border border-line/80 bg-surface p-3 shadow-sm">
           <label class="label-field-caps" for="f-month">Mes</label>
           <select id="f-month" v-model="filters.month" class="select-field">
             <option value="">Todos</option>
             <option v-for="(m, i) in MESES.slice(1)" :key="i" :value="i+1">{{ m }}</option>
           </select>
         </div>
-        <div class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm">
+        <div class="rounded-lg border border-line/80 bg-surface p-3 shadow-sm">
           <label class="label-field-caps" for="f-tipo">Tipo</label>
           <select id="f-tipo" v-model="filters.tipoMovimiento" class="select-field">
             <option value="">Todos</option>
@@ -44,14 +44,14 @@
             <option value="COMPRA">Compra</option>
           </select>
         </div>
-        <div class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm">
+        <div class="rounded-lg border border-line/80 bg-surface p-3 shadow-sm">
           <label class="label-field-caps" for="f-dest">Destino</label>
           <select id="f-dest" v-model="filters.destinoTributario" class="select-field">
             <option value="">Todos</option>
             <option v-for="(nombre, key) in NOMBRES_DESTINO" :key="key" :value="key">{{ nombre }}</option>
           </select>
         </div>
-        <div class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm xl:col-span-2">
+        <div class="rounded-lg border border-line/80 bg-surface p-3 shadow-sm xl:col-span-2">
           <label class="label-field-caps" for="f-sub">Subcategoría</label>
           <select id="f-sub" v-model="filters.subcategoria" class="select-field">
             <option value="">Todas</option>
@@ -64,15 +64,15 @@
     <!-- Tabla -->
     <div class="card overflow-hidden p-0">
       <div v-if="pending" class="flex items-center justify-center py-16">
-        <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
+        <div class="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand-600" />
       </div>
-      <div v-else-if="!data?.data?.length" class="py-16 text-center text-slate-500">
+      <div v-else-if="!data?.data?.length" class="py-16 text-center text-content-muted">
         No hay comprobantes registrados
       </div>
       <div v-else class="overflow-x-auto">
         <table class="w-full min-w-[960px] text-sm">
           <thead>
-            <tr class="border-b border-slate-200 bg-slate-50/95 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <tr class="border-b border-line bg-surface-raised/95 text-left text-xs font-semibold uppercase tracking-wide text-content-soft">
               <th class="px-4 py-3.5">Fecha</th>
               <th class="px-4 py-3.5">Tipo</th>
               <th class="px-4 py-3.5">Comprobante</th>
@@ -86,45 +86,50 @@
               <th class="px-4 py-3.5 text-center">Acciones</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-line">
             <tr
               v-for="v in data.data"
               :key="v.id"
-              class="transition-colors hover:bg-slate-50/90"
+              class="transition-colors hover:bg-surface-raised/90"
               :class="v.tipoMovimiento === 'VENTA' ? 'bg-emerald-50/25' : 'bg-rose-50/20'"
             >
-              <td class="whitespace-nowrap px-4 py-3 text-slate-800">{{ formatDate(v.fecha) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-content">{{ formatDate(v.fecha) }}</td>
               <td class="px-4 py-3">
                 <UiBadge :variant="v.tipoMovimiento === 'VENTA' ? 'green' : 'red'">
                   {{ v.tipoMovimiento }}
                 </UiBadge>
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-slate-800">
+              <td class="whitespace-nowrap px-4 py-3 text-content">
                 {{ NOMBRES_COMPROBANTE[v.tipoComprobante] || v.tipoComprobante }}
-                <span v-if="v.serie || v.numero" class="ml-1 text-xs text-slate-500">
+                <span v-if="v.serie || v.numero" class="ml-1 text-xs text-content-muted">
                   {{ v.serie }}-{{ v.numero }}
                 </span>
               </td>
-              <td class="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-600">{{ v.rucDni || '—' }}</td>
-              <td class="max-w-[220px] truncate px-4 py-3 text-slate-800">{{ v.razonSocial || '—' }}</td>
-              <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-900">S/ {{ formatMoney(Number(v.importeTotal)) }}</td>
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">S/ {{ formatMoney(Number(v.baseImponible)) }}</td>
-              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">S/ {{ formatMoney(Number(v.igv)) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 font-mono text-xs text-content-soft">{{ v.rucDni || '—' }}</td>
+              <td class="max-w-[220px] truncate px-4 py-3 text-content">{{ v.razonSocial || '—' }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-content">S/ {{ formatMoney(Number(v.importeTotal)) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-content-soft">S/ {{ formatMoney(Number(v.baseImponible)) }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-content-soft">
+                S/ {{ formatMoney(Number(v.igv)) }}
+                <UiBadge v-if="Number(v.igvPercent) !== 18" :variant="v.regimenIgv === 'LEY_31556' ? 'purple' : 'gray'" class="ml-1">
+                  {{ Number(v.igvPercent) }}%
+                </UiBadge>
+              </td>
               <td class="px-4 py-3">
                 <UiBadge :variant="destinoColor(v.destinoTributario)">
                   {{ NOMBRES_DESTINO[v.destinoTributario] || v.destinoTributario }}
                 </UiBadge>
               </td>
-              <td class="px-4 py-3 text-slate-600">{{ NOMBRES_SUBCATEGORIA[v.subcategoria] || v.subcategoria }}</td>
+              <td class="px-4 py-3 text-content-soft">{{ NOMBRES_SUBCATEGORIA[v.subcategoria] || v.subcategoria }}</td>
               <td class="px-4 py-3 text-center">
                 <div class="flex items-center justify-center gap-0.5">
-                  <button type="button" class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200/80 hover:text-slate-800" title="Editar" @click="editVoucher(v)">
+                  <button type="button" class="rounded-lg p-2 text-content-muted transition-colors hover:bg-surface-muted/80 hover:text-content" title="Editar" @click="editVoucher(v)">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                   </button>
-                  <button type="button" class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200/80 hover:text-slate-800" title="Duplicar" @click="duplicateVoucher(v.id)">
+                  <button type="button" class="rounded-lg p-2 text-content-muted transition-colors hover:bg-surface-muted/80 hover:text-content" title="Duplicar" @click="duplicateVoucher(v.id)">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                   </button>
-                  <button type="button" class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50" title="Eliminar" @click="deleteVoucher(v.id)">
+                  <button type="button" class="rounded-lg p-2 text-red-500 dark:text-red-400 transition-colors hover:bg-red-50 dark:bg-red-500/10" title="Eliminar" @click="deleteVoucher(v.id)">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>
@@ -137,16 +142,16 @@
       <!-- Paginación -->
       <div
         v-if="data?.pagination && data.pagination.totalPages > 1"
-        class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/50 px-4 py-3"
+        class="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-raised/50 px-4 py-3"
       >
-        <span class="text-sm text-slate-600">{{ data.pagination.total }} registros</span>
+        <span class="text-sm text-content-soft">{{ data.pagination.total }} registros</span>
         <div class="flex flex-wrap gap-1">
           <button
             v-for="p in data.pagination.totalPages"
             :key="p"
             type="button"
             class="min-w-[2.25rem] rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-            :class="filters.page === p ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'"
+            :class="filters.page === p ? 'bg-brand-600 text-white shadow-sm' : 'bg-surface text-content-soft ring-1 ring-slate-200 hover:bg-surface-muted'"
             @click="filters.page = p"
           >
             {{ p }}
@@ -160,7 +165,7 @@
       <form @submit.prevent="saveVoucher" class="space-y-6">
         <!-- Sección 1: Datos básicos -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Datos del comprobante</h3>
+          <h3 class="text-sm font-semibold text-content-soft mb-3">Datos del comprobante</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label class="label-field">Fecha *</label>
@@ -201,17 +206,26 @@
 
         <!-- Sección 2: Importes -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Importes</h3>
+          <h3 class="text-sm font-semibold text-content-soft mb-3">Importes</h3>
           <UiAlert type="info" class="mb-3">
             Escribe solo el <strong>importe total</strong> del comprobante. La base imponible e IGV se calculan automáticamente.
           </UiAlert>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label class="label-field">¿Afecto a IGV?</label>
-              <select v-model="form.afectoIgv" class="select-field">
-                <option :value="true">Sí</option>
-                <option :value="false">No</option>
+              <label class="label-field">Tasa de IGV</label>
+              <select v-model="presetIgv" class="select-field" @change="onPresetIgvChange">
+                <option v-for="p in PRESETS_IGV" :key="p.regimen" :value="p.regimen">{{ p.label }}</option>
+                <option value="PERSONALIZADA">Personalizada…</option>
               </select>
+              <input
+                v-if="presetIgv === 'PERSONALIZADA'"
+                v-model.number="form.igvPercent"
+                type="number" step="0.01" min="0" max="100"
+                class="input-field mt-2"
+                placeholder="Tasa %"
+                @input="recalcular"
+              />
+              <p class="hint-field">{{ hintIgv }}</p>
             </div>
             <div>
               <label class="label-field">Importe Total * (S/)</label>
@@ -220,21 +234,21 @@
             </div>
             <div>
               <label class="label-field">Base Imponible (S/)
-                <span class="text-xs text-gray-400">(auto)</span>
+                <span class="text-xs text-content-muted">(auto)</span>
               </label>
-              <input v-model.number="form.baseImponible" type="number" step="0.01" class="input-field bg-gray-50"
+              <input v-model.number="form.baseImponible" type="number" step="0.01" class="input-field bg-surface-raised"
                 :disabled="!form.modoManual" />
             </div>
             <div>
               <label class="label-field">IGV (S/)
-                <span class="text-xs text-gray-400">(auto)</span>
+                <span class="text-xs text-content-muted">(auto)</span>
               </label>
-              <input v-model.number="form.igv" type="number" step="0.01" class="input-field bg-gray-50"
+              <input v-model.number="form.igv" type="number" step="0.01" class="input-field bg-surface-raised"
                 :disabled="!form.modoManual" />
             </div>
           </div>
           <div class="mt-2">
-            <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+            <label class="flex items-center gap-2 text-sm text-content-muted cursor-pointer">
               <input v-model="form.modoManual" type="checkbox" class="rounded" />
               Modo manual (editar base e IGV directamente)
             </label>
@@ -243,7 +257,7 @@
 
         <!-- Sección 3: Clasificación tributaria -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Clasificación tributaria</h3>
+          <h3 class="text-sm font-semibold text-content-soft mb-3">Clasificación tributaria</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label class="label-field">Destino tributario *</label>
@@ -289,21 +303,21 @@
 
         <!-- Sección 4: Opciones adicionales -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Opciones adicionales</h3>
+          <h3 class="text-sm font-semibold text-content-soft mb-3">Opciones adicionales</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <input v-model="form.inventarioFinal" type="checkbox" class="rounded" />
                 Inventario final
               </label>
-              <p class="text-xs text-gray-400 mt-1">Marcar si esta compra quedará como inventario sin vender al cierre</p>
+              <p class="text-xs text-content-muted mt-1">Marcar si esta compra quedará como inventario sin vender al cierre</p>
             </div>
             <div>
               <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <input v-model="form.activoFijo" type="checkbox" class="rounded" />
                 Activo fijo
               </label>
-              <p class="text-xs text-gray-400 mt-1">Marcar si es un bien duradero (equipo, servidor, etc.)</p>
+              <p class="text-xs text-content-muted mt-1">Marcar si es un bien duradero (equipo, servidor, etc.)</p>
             </div>
             <div v-if="form.activoFijo || form.destinoTributario === 'ACTIVO_FIJO'">
               <label class="label-field">Vida útil (meses) *</label>
@@ -318,7 +332,7 @@
         </div>
 
         <!-- Errores -->
-        <div v-if="formError" class="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+        <div v-if="formError" class="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">
           {{ formError }}
         </div>
       </form>
@@ -339,6 +353,8 @@
 const { formatMoney, calcularBaseEIGV, getSubcategoriasPorDestino,
   NOMBRES_DESTINO, NOMBRES_SUBCATEGORIA, NOMBRES_COMPROBANTE,
   NOMBRES_MEDIO_PAGO, NOMBRES_ESTADO_PAGO, MESES } = useTaxCalculations()
+
+const { igvPorDefecto } = useAppContext()
 
 const currentYear = new Date().getFullYear()
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
@@ -391,6 +407,8 @@ const form = reactive({
   rucDni: '',
   razonSocial: '',
   afectoIgv: true,
+  igvPercent: 18,
+  regimenIgv: 'GENERAL' as string,
   importeTotal: 0,
   baseImponible: 0,
   igv: 0,
@@ -410,12 +428,14 @@ const form = reactive({
 function resetForm() {
   editingId.value = null
   formError.value = ''
+  presetIgv.value = 'GENERAL'
   Object.assign(form, {
     fecha: new Date().toISOString().split('T')[0],
     tipoMovimiento: '',
     tipoComprobante: 'FACTURA',
     serie: '', numero: '', rucDni: '', razonSocial: '',
-    afectoIgv: true, importeTotal: 0, baseImponible: 0, igv: 0, modoManual: false,
+    afectoIgv: true, igvPercent: igvPorDefecto.value, regimenIgv: 'GENERAL',
+    importeTotal: 0, baseImponible: 0, igv: 0, modoManual: false,
     medioPago: 'TRANSFERENCIA', estadoPago: 'PAGADO',
     destinoTributario: '', subcategoria: 'OTRO',
     deducibleIr: true, creditoFiscalIgv: true,
@@ -423,15 +443,53 @@ function resetForm() {
   })
 }
 
+// Tasa de IGV: preset de ley o valor libre. El régimen decide a qué casillas del
+// Formulario 0621 va el importe; la tasa numérica decide la aritmética.
+const presetIgv = ref<string>('GENERAL')
+
+const hintIgv = computed(() => {
+  const preset = PRESETS_IGV.find(p => p.regimen === presetIgv.value)
+  if (preset) return preset.regimen === 'GENERAL' ? `Tasa vigente: ${igvPorDefecto.value}%` : preset.hint
+  return 'Tasa distinta de las de ley; verifica el comprobante.'
+})
+
+function onPresetIgvChange() {
+  const preset = PRESETS_IGV.find(p => p.regimen === presetIgv.value)
+  if (preset) {
+    form.regimenIgv = preset.regimen
+    form.igvPercent = preset.regimen === 'GENERAL' ? igvPorDefecto.value : preset.value
+  } else {
+    // Personalizada: se mantiene como operación gravada del régimen general.
+    form.regimenIgv = 'GENERAL'
+    if (!form.igvPercent) form.igvPercent = igvPorDefecto.value
+  }
+  form.afectoIgv = Number(form.igvPercent) > 0
+  recalcular()
+}
+
+function presetDesdeVoucher(v: any): string {
+  const regimen = v.regimenIgv || (v.afectoIgv ? 'GENERAL' : 'EXONERADO')
+  if (regimen === 'EXONERADO' || regimen === 'INAFECTO') return 'EXONERADO'
+  const preset = PRESETS_IGV.find(p => p.regimen === regimen)
+  if (preset && (regimen === 'GENERAL' ? true : Number(v.igvPercent) === preset.value)) return regimen
+  return 'PERSONALIZADA'
+}
+
 function recalcular() {
   if (!form.modoManual) {
-    const { baseImponible, igv } = calcularBaseEIGV(form.importeTotal, form.afectoIgv)
+    const { baseImponible, igv } = calcularBaseEIGV(form.importeTotal, form.afectoIgv, form.igvPercent)
     form.baseImponible = baseImponible
     form.igv = igv
   }
 }
 
 watch(() => form.afectoIgv, () => recalcular())
+watch(() => form.igvPercent, () => recalcular())
+// Al desmarcar el modo manual hay que recalcular: si no, base e IGV se quedan
+// congelados en lo que el usuario escribió a mano.
+watch(() => form.modoManual, (manual) => {
+  if (!manual) recalcular()
+})
 
 const destinosDisponibles = computed(() => {
   if (form.tipoMovimiento === 'VENTA') {
@@ -485,6 +543,7 @@ watch(() => form.tipoMovimiento, (val) => {
 function editVoucher(v: any) {
   editingId.value = v.id
   formError.value = ''
+  presetIgv.value = presetDesdeVoucher(v)
   Object.assign(form, {
     fecha: v.fecha.split('T')[0],
     tipoMovimiento: v.tipoMovimiento,
@@ -494,6 +553,8 @@ function editVoucher(v: any) {
     rucDni: v.rucDni || '',
     razonSocial: v.razonSocial || '',
     afectoIgv: v.afectoIgv,
+    igvPercent: Number(v.igvPercent ?? 18),
+    regimenIgv: v.regimenIgv || (v.afectoIgv ? 'GENERAL' : 'EXONERADO'),
     importeTotal: Number(v.importeTotal),
     baseImponible: Number(v.baseImponible),
     igv: Number(v.igv),

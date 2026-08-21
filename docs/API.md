@@ -1,6 +1,9 @@
 # Referencia de API
 
-Todas las rutas requieren autenticación (cookie `auth_token` con JWT), excepto `POST /api/auth/login`.
+Todas las rutas requieren autenticación (cookie `auth_token` con JWT), excepto
+`POST /api/auth/login` y `POST /api/auth/logout`, que son las únicas públicas.
+Las rutas de `/api/users` exigen además rol `ADMIN`, verificado releyendo el
+usuario de la base de datos (los JWT vigentes duran 7 días y no traen el rol).
 
 ## Autenticación
 
@@ -21,6 +24,34 @@ Elimina la cookie de sesión.
 Retorna el usuario actual desde el token.
 
 **Response:** `{ "id": 1, "username": "admin" }`
+
+---
+
+### `POST /api/auth/change-password`
+
+Cambia la contraseña del usuario de la sesión.
+
+```json
+{ "passwordActual": "…", "passwordNueva": "mínimo 8 caracteres" }
+```
+
+`401` si falta sesión o la contraseña actual es incorrecta. El token sigue siendo válido: identifica al usuario, no a la contraseña.
+
+---
+
+## Usuarios (solo ADMIN)
+
+### `GET /api/users`
+Lista los usuarios. Nunca devuelve `passwordHash`.
+
+### `POST /api/users`
+`{ username, password, nombre?, role: 'ADMIN' | 'USUARIO', activo? }`. `409` si el usuario ya existe.
+
+### `PUT /api/users/:id`
+`{ nombre?, role?, activo?, password? }`. `400` si dejaría al sistema sin ningún administrador activo.
+
+### `DELETE /api/users/:id`
+`400` si es el propio usuario o el último administrador activo.
 
 ---
 
@@ -154,6 +185,23 @@ Parámetros tributarios del año.
 
 ### `PUT /api/settings/tax-params`
 Actualizar parámetros (IGV%, IR%, UIT, tramos).
+
+---
+
+### `GET /api/settings/context`
+
+Empresa, régimen y parámetros del año en una sola llamada. Lo consume el header del layout.
+
+```json
+{
+  "year": 2026,
+  "company": { "ruc": "…", "razonSocial": "…", "nombreComercial": "…", "direccion": "…", "moneda": "PEN" },
+  "regimen": "RMT",
+  "regimenSpec": { "label": "MYPE Tributario (RMT)", "aplicaIgv": true, "aplicaDjAnual": true, "…": "…" },
+  "igvPercent": 18,
+  "uit": 5350
+}
+```
 
 ---
 

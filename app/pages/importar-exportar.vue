@@ -1,13 +1,13 @@
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-gray-800 mb-1">Importar / Exportar</h1>
-    <p class="text-gray-500 text-sm mb-6">Descarga tu data en Excel o importa comprobantes desde un archivo</p>
+    <h1 class="text-2xl font-bold text-content mb-1">Importar / Exportar</h1>
+    <p class="text-content-muted text-sm mb-6">Descarga tu data en Excel o importa comprobantes desde un archivo</p>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Exportar -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Exportar comprobantes</h2>
-        <p class="text-sm text-gray-500 mb-4">
+        <h2 class="text-lg font-semibold text-content-soft mb-4">Exportar comprobantes</h2>
+        <p class="text-sm text-content-muted mb-4">
           Descarga todos tus comprobantes en formato Excel (.xlsx) o CSV para revisión, respaldo o envío a tu contador.
         </p>
         <div class="space-y-4">
@@ -38,8 +38,8 @@
 
       <!-- Importar -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Importar comprobantes</h2>
-        <p class="text-sm text-gray-500 mb-4">
+        <h2 class="text-lg font-semibold text-content-soft mb-4">Importar comprobantes</h2>
+        <p class="text-sm text-content-muted mb-4">
           Sube un archivo Excel o CSV con comprobantes. El formato debe tener las columnas:
           <strong>fecha, tipoMovimiento, tipoComprobante, serie, numero, rucDni, razonSocial, importeTotal, afectoIgv, destinoTributario</strong>.
         </p>
@@ -54,15 +54,15 @@
             @dragleave="isDragging = false"
             @drop.prevent="onDrop"
             class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
-            :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'"
+            :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-line-strong hover:border-line-strong'"
             @click="fileInput?.click()">
             <input ref="fileInput" type="file" class="hidden"
               accept=".xlsx,.xls,.csv" @change="onFileSelect" />
-            <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            <p class="text-sm text-gray-600">
+            <svg class="w-10 h-10 mx-auto text-content-muted mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm text-content-soft">
               {{ selectedFile ? selectedFile.name : 'Arrastra un archivo aquí o haz clic para seleccionar' }}
             </p>
-            <p class="text-xs text-gray-400 mt-1">Excel (.xlsx) o CSV (.csv)</p>
+            <p class="text-xs text-content-muted mt-1">Excel (.xlsx) o CSV (.csv)</p>
           </div>
 
           <button @click="doImport" class="btn-primary w-full" :disabled="!selectedFile || importing">
@@ -73,14 +73,14 @@
         <!-- Resultado importación -->
         <div v-if="importResult" class="mt-4 space-y-2">
           <div class="flex gap-4 text-sm">
-            <span class="text-green-600 font-medium">✓ {{ importResult.imported }} importados</span>
-            <span v-if="importResult.errors?.length" class="text-red-600 font-medium">
+            <span class="text-green-600 dark:text-green-400 font-medium">✓ {{ importResult.imported }} importados</span>
+            <span v-if="importResult.errors?.length" class="text-red-600 dark:text-red-400 font-medium">
               ✕ {{ importResult.errors.length }} errores
             </span>
           </div>
           <div v-if="importResult.errors?.length" class="max-h-40 overflow-y-auto">
             <div v-for="(err, i) in importResult.errors" :key="i"
-              class="text-xs text-red-600 bg-red-50 px-3 py-1 rounded mb-1">
+              class="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-1 rounded mb-1">
               Fila {{ err.row }}: {{ err.error }}
             </div>
           </div>

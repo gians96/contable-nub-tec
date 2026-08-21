@@ -31,7 +31,11 @@ Usuario del sistema.
 | id | INT (PK, auto) | — |
 | username | VARCHAR (unique) | Nombre de usuario |
 | passwordHash | VARCHAR | Hash bcrypt |
+| nombre | VARCHAR (null) | Nombre para mostrar |
+| role | ENUM(ADMIN, USUARIO) | ADMIN gestiona usuarios |
+| activo | BOOLEAN | Un usuario inactivo no puede iniciar sesión |
 | createdAt | DATETIME | — |
+| updatedAt | DATETIME | — |
 
 ### `company_settings`
 Datos de la empresa MYPE.
@@ -52,12 +56,25 @@ Parámetros tributarios por año. Un registro por año.
 |-------|------|-------------|
 | id | INT (PK) | — |
 | year | INT (unique) | Año fiscal |
-| igvPercent | DECIMAL(5,2) | Porcentaje IGV (default: 18%) |
+| igvPercent | DECIMAL(5,2) | Tasa de IGV por defecto del año (default: 18%) |
 | irMonthlyPercent | DECIMAL(5,2) | Pago a cuenta IR mensual (default: 1%) |
 | uit | DECIMAL(10,2) | Valor de la UIT del año |
 | irAnnualTramo1Limit | DECIMAL(5,2) | Límite Tramo 1 en UITs (default: 15) |
 | irAnnualTramo1Rate | DECIMAL(5,2) | Tasa Tramo 1 (default: 10%) |
 | irAnnualTramo2Rate | DECIMAL(5,2) | Tasa Tramo 2 (default: 29.5%) |
+| irAnnualFlatRate | DECIMAL(5,2) | Tasa anual plana del RG (default: 29.5%) |
+| regimen | ENUM(NRUS, RER, RMT, RG) | Régimen vigente en el año (default: RMT) |
+| nrusCategoria | INT | Categoría del NRUS (1 o 2) |
+| nrusCuotaCat1 / nrusCuotaCat2 | DECIMAL(10,2) | Cuota fija mensual (20 / 50) |
+| nrusLimiteCat1 / nrusLimiteCat2 | DECIMAL(12,2) | Límite de ingresos o compras (5 000 / 8 000) |
+| rerRate | DECIMAL(5,2) | Renta mensual definitiva del RER (1.5%) |
+| rmtUmbralUit | DECIMAL(10,2) | Umbral en UIT para cambiar de tasa en RMT (300) |
+| rmtLimiteRegimenUit | DECIMAL(10,2) | Tope de ingresos del RMT en UIT (1 700) |
+| pagoCuentaMinRate | DECIMAL(5,2) | Tasa mínima del pago a cuenta (1.5%) |
+| coeficienteManual | DECIMAL(8,6)? | Override del coeficiente; null = se calcula del ejercicio anterior |
+
+El régimen vive aquí y no en una tabla propia porque sería 1:1 con esta y
+duplicaría la consulta en los cinco endpoints que ya la leen.
 
 ### `parties`
 Clientes y proveedores.
@@ -89,6 +106,8 @@ Comprobantes de venta y compra.
 | rucDni | VARCHAR? | RUC/DNI directo (si no hay Party) |
 | razonSocial | VARCHAR? | Razón social directa |
 | afectoIgv | BOOLEAN | ¿Gravado con IGV? |
+| igvPercent | DECIMAL(5,2) | Tasa aplicada a **este** comprobante (default: 18%) |
+| regimenIgv | ENUM(GENERAL, LEY_31556, EXONERADO, INAFECTO) | Decide a qué casillas del 0621 va el importe |
 | importeTotal | DECIMAL(12,2) | Monto total |
 | baseImponible | DECIMAL(12,2) | Base sin IGV (calculada o manual) |
 | igv | DECIMAL(12,2) | Monto del IGV (calculado o manual) |

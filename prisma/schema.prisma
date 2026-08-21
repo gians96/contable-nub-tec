@@ -50,6 +50,25 @@ enum Subcategoria {
   OTRO
 }
 
+enum RegimenTributario {
+  NRUS
+  RER
+  RMT
+  RG
+}
+
+enum UserRole {
+  ADMIN
+  USUARIO
+}
+
+enum RegimenIgv {
+  GENERAL
+  LEY_31556
+  EXONERADO
+  INAFECTO
+}
+
 enum MedioPago {
   EFECTIVO
   TRANSFERENCIA
@@ -96,7 +115,11 @@ model User {
   id           Int      @id @default(autoincrement())
   username     String   @unique
   passwordHash String
+  nombre       String?
+  role         UserRole @default(USUARIO)
+  activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("users")
 }
@@ -123,6 +146,26 @@ model TaxParameter {
   irAnnualTramo1Limit Decimal  @default(15) @db.Decimal(5, 2)
   irAnnualTramo1Rate  Decimal  @default(10.00) @db.Decimal(5, 2)
   irAnnualTramo2Rate  Decimal  @default(29.50) @db.Decimal(5, 2)
+  irAnnualFlatRate    Decimal  @default(29.50) @db.Decimal(5, 2)
+
+  // Régimen tributario vigente en el año y sus parámetros.
+  regimen             RegimenTributario @default(RMT)
+
+  // NRUS: cuota fija mensual segun categoria.
+  nrusCategoria       Int      @default(1)
+  nrusCuotaCat1       Decimal  @default(20.00) @db.Decimal(10, 2)
+  nrusCuotaCat2       Decimal  @default(50.00) @db.Decimal(10, 2)
+  nrusLimiteCat1      Decimal  @default(5000.00) @db.Decimal(12, 2)
+  nrusLimiteCat2      Decimal  @default(8000.00) @db.Decimal(12, 2)
+
+  // RER: tasa mensual de caracter definitivo.
+  rerRate             Decimal  @default(1.50) @db.Decimal(5, 2)
+
+  // RMT / RG: pago a cuenta.
+  rmtUmbralUit        Decimal  @default(300) @db.Decimal(10, 2)
+  rmtLimiteRegimenUit Decimal  @default(1700) @db.Decimal(10, 2)
+  pagoCuentaMinRate   Decimal  @default(1.50) @db.Decimal(5, 2)
+  coeficienteManual   Decimal? @db.Decimal(8, 6)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -160,6 +203,8 @@ model Voucher {
   rucDni            String?
   razonSocial       String?
   afectoIgv         Boolean           @default(true)
+  igvPercent        Decimal           @default(18.00) @db.Decimal(5, 2)
+  regimenIgv        RegimenIgv        @default(GENERAL)
   importeTotal      Decimal           @db.Decimal(12, 2)
   baseImponible     Decimal           @db.Decimal(12, 2)
   igv               Decimal           @db.Decimal(12, 2)
@@ -197,6 +242,8 @@ model InventoryAsset {
   base              Decimal             @db.Decimal(12, 2)
   igv               Decimal             @db.Decimal(12, 2)
   total             Decimal             @db.Decimal(12, 2)
+  igvPercent        Decimal             @default(18.00) @db.Decimal(5, 2)
+  regimenIgv        RegimenIgv          @default(GENERAL)
   destinoTributario DestinoTributario   @default(GASTO_ADMIN)
   estadoCierre      EstadoCierre        @default(EN_USO)
   vidaUtilMeses     Int?

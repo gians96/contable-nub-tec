@@ -1,17 +1,22 @@
 import jwt from 'jsonwebtoken'
 
 /**
- * Middleware de autenticación para rutas API.
- * Excluye: /api/auth/login
+ * Autenticación de las rutas API.
+ *
+ * La lista de rutas públicas es explícita: antes se dejaba pasar todo
+ * `/api/auth/*`, lo que dejaría sin guardia a endpoints como el cambio de
+ * contraseña, que necesita `event.context.auth`.
  */
+const PUBLIC_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/logout',
+])
+
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
 
-  // No proteger login
-  if (path === '/api/auth/login') return
-
-  // Solo proteger rutas /api/ (excepto auth)
-  if (!path.startsWith('/api/') || path.startsWith('/api/auth/')) return
+  if (!path.startsWith('/api/')) return
+  if (PUBLIC_PATHS.has(path)) return
 
   const token = getCookie(event, 'auth_token')
 
