@@ -207,6 +207,29 @@ export interface ValidacionCasilla {
   sugerencias?: string[]
 }
 
+/**
+ * Determinación de la deuda del 0621, calculada **sobre las casillas ya
+ * redondeadas**.
+ *
+ * SUNAT redondea cada casilla a soles enteros y luego opera con esos enteros;
+ * la contabilidad de la app opera con céntimos y redondea al final. Los dos
+ * caminos difieren hasta en un sol, y el que hay que pagar es el de SUNAT.
+ */
+export interface DeterminacionDeuda {
+  /** 140 — impuesto resultante del período (negativo = saldo a favor). */
+  igvResultante: number
+  /** 145 — saldo a favor del período anterior. */
+  saldoFavorAnterior: number
+  /** 184 — tributo a pagar (negativo = saldo a favor que se arrastra). */
+  igvAPagar: number
+  /** 301 — ingresos netos del mes. */
+  ingresosNetos: number
+  /** 302 / 304 — pago a cuenta o renta definitiva del período. */
+  rentaAPagar: number
+  /** 189 + 307 — importe total a pagar, que es el que muestra SUNAT arriba. */
+  totalAPagar: number
+}
+
 export interface CasillaGuia {
   casilla: string
   label: string

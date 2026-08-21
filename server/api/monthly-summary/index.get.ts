@@ -36,6 +36,8 @@ export default defineEventHandler(async (event) => {
 
   const summaries = []
   let saldoAnterior = 0
+  /** Saldo a favor de la determinación en soles enteros, la que llena el 0621. */
+  let saldoFavorSunat = 0
   let deudaIgvAcum = openingIgvDebt
   // El umbral de las 300 UIT del RMT se mide sobre ingresos ANUALES acumulados,
   // así que la tasa del pago a cuenta puede cambiar a mitad de año.
@@ -63,13 +65,27 @@ export default defineEventHandler(async (event) => {
       coeficiente: coeficiente.valor,
     })
 
-    const igvDelPeriodoAPagar = Math.max(0, base.igvNetoMes)
     const resumen = {
       ...base,
       irMensual,
       pagoIrSugerido: irMensual.monto,
-      pagoTotalSugerido: round2(igvDelPeriodoAPagar + irMensual.monto),
+      pagoTotalSugerido: round2(Math.max(0, base.igvNetoMes) + irMensual.monto),
     }
+
+    const guia = generarGuia0621(resumen, taxContext.spec, {
+      tasaGeneral: taxContext.igvPercent,
+      tasaLey31556: tasaLey31556DelMes(monthVouchers),
+      porcentajeRentaTexto: coeficiente.origen === 'no-aplica' ? undefined : coeficiente.detalle,
+      saldoFavorAnteriorSunat: saldoFavorSunat,
+    })
+    // El 145 del mes siguiente lo precarga SUNAT con su propio saldo, no con el
+    // de la contabilidad al céntimo: la cadena se lleva aparte.
+    saldoFavorSunat = Math.max(0, -guia.determinacion.igvAPagar)
+
+    // La deuda se mide contra lo que SUNAT liquida, no contra la contabilidad
+    // al céntimo: el formulario redondea cada casilla y luego opera, y por ese
+    // orden puede pedir un sol más del que sale de restar los importes exactos.
+    const igvDelPeriodoAPagar = Math.max(0, guia.determinacion.igvAPagar)
 
     const saved = savedMap.get(`${year}-${month}`)
     const pagoIgv = saved ? Number(saved.pagoIgvEfectuado) : 0
@@ -84,12 +100,6 @@ export default defineEventHandler(async (event) => {
       igvDeudaCierreMes = Math.max(0, round2(antesPago - pagoIgv))
       deudaIgvAcum = igvDeudaCierreMes
     }
-
-    const guia = generarGuia0621(resumen, taxContext.spec, {
-      tasaGeneral: taxContext.igvPercent,
-      tasaLey31556: tasaLey31556DelMes(monthVouchers),
-      porcentajeRentaTexto: coeficiente.origen === 'no-aplica' ? undefined : coeficiente.detalle,
-    })
 
     summaries.push({
       ...resumen,

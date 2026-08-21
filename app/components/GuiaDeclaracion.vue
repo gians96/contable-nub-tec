@@ -5,13 +5,27 @@
         <h2 class="text-lg font-semibold text-content">Qué declarar en {{ guia.formulario }}</h2>
         <p class="mt-1 text-sm text-content-muted">
           Casilla por casilla, con los importes ya redondeados a soles enteros como los pide SUNAT.
+          La determinación se calcula sobre esos enteros, igual que el formulario, así que puede
+          diferir en un sol de la contabilidad al céntimo.
         </p>
       </div>
-      <select v-model.number="mesSeleccionado" class="select-field max-w-[190px]">
-        <option v-for="m in mesesConDatos" :key="m.month" :value="m.month">
-          {{ m.nombreMes }}
-        </option>
-      </select>
+      <div class="flex flex-wrap items-center gap-3">
+        <div
+          v-if="guia.aplicaFormulario0621"
+          class="rounded-xl border border-line bg-surface-raised px-4 py-2 text-right"
+        >
+          <p class="text-[11px] font-medium uppercase tracking-wide text-content-muted">Importe total a pagar</p>
+          <p class="font-mono text-xl font-bold tabular-nums text-content">
+            S/ {{ formatMoneyInt(guia.determinacion.totalAPagar) }}
+          </p>
+          <p class="text-[11px] text-content-muted">casillas 189 + 307</p>
+        </div>
+        <select v-model.number="mesSeleccionado" class="select-field max-w-[190px]">
+          <option v-for="m in mesesConDatos" :key="m.month" :value="m.month">
+            {{ m.nombreMes }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <div v-if="!guia.aplicaFormulario0621" class="mb-4">

@@ -5,7 +5,13 @@
  * las validaciones de SUNAT, para que los rechazos se vean aquí y no al final,
  * con el formulario ya a medio llenar.
  */
-import type { CasillaGuia, RegimenSpec, ResumenMensual, ValidacionCasilla } from '../types/tax'
+import type {
+  CasillaGuia,
+  DeterminacionDeuda,
+  RegimenSpec,
+  ResumenMensual,
+  ValidacionCasilla,
+} from '../types/tax'
 import { redondeoSunat } from './tax'
 
 /**
@@ -82,7 +88,10 @@ export function validarBandaTributo(
     }
   }
 
-  if (tributoEntero < lo || tributoEntero > hi) {
+  // El redondeo de la propia SUNAT puede quedar hasta medio sol por debajo del
+  // piso teórico (1 506 × 18% = 271,08 y ella declara 271), así que un sol de
+  // holgura evita avisar de algo que el formulario acepta sin chistar.
+  if (tributoEntero < lo - 1 || tributoEntero > hi + 1) {
     return {
       ok: false,
       mensaje:
@@ -107,6 +116,33 @@ export interface Guia0621 {
   casillas: CasillaGuia[]
   /** Problemas que impedirían enviar la declaración. */
   bloqueos: string[]
+  /** Deuda del período calculada como la calcula SUNAT: sobre soles enteros. */
+  determinacion: DeterminacionDeuda
+}
+
+/**
+ * Débito fiscal con el que SUNAT llena la casilla del tributo.
+ *
+ * **No es el redondeo del IGV exacto, es la tasa sobre la base ya redondeada.**
+ * Reconstruyendo declaraciones reales, es el único criterio que reproduce lo
+ * que trae el formulario: con una base de 2 330,51 y un IGV de 419,49, SUNAT
+ * no pone 419 sino 420, porque liquida 2 331 × 18% = 419,58. Y con una base de
+ * 1 505,52 pone 271, aunque 1 506 × 18% = 271,08 quede un céntimo por encima.
+ *
+ * El orden importa porque de él salen el impuesto resultante, el saldo que se
+ * arrastra y, al final, el importe a pagar: hacerlo al revés se desvía un sol.
+ */
+function tributoDeclarado(base: number, tasa: number): number {
+  const baseEntera = redondeoSunat(base)
+  if (!baseEntera || !tasa) return 0
+  return redondeoSunat(baseEntera * tasa / 100)
+}
+
+/** Aviso cuando lo que liquida SUNAT no coincide con el IGV de los comprobantes. */
+function notaTributo(exacto: number, declarado: number): string | undefined {
+  if (redondeoSunat(exacto) === declarado) return undefined
+  return 'SUNAT liquida esta casilla sobre la base ya redondeada, así que sale S/ ' +
+    declarado + ' aunque el IGV exacto de tus comprobantes sea S/ ' + exacto.toFixed(2) + '.'
 }
 
 export interface OpcionesGuia {
@@ -116,6 +152,12 @@ export interface OpcionesGuia {
   tasaLey31556?: number
   /** Texto del porcentaje o coeficiente de renta, para la casilla 315. */
   porcentajeRentaTexto?: string
+  /**
+   * Saldo a favor con el que SUNAT precarga la casilla 145: el que arrastra su
+   * propia determinación del mes anterior, no el de la contabilidad exacta.
+   * Sin él, la cadena de meses se desvía de la declaración real.
+   */
+  saldoFavorAnteriorSunat?: number
 }
 
 /**
@@ -141,18 +183,28 @@ export function generarGuia0621(
       nota: 'Se paga con la guía de pagos varios / ' + spec.formularioMensual + ', no con el 0621.',
     })
 
+    const cuota = redondeoSunat(resumen.pagoIrSugerido)
     return {
       formulario: spec.formularioMensual,
       aplicaFormulario0621: false,
       casillas,
       bloqueos: [],
+      determinacion: {
+        igvResultante: 0,
+        saldoFavorAnterior: 0,
+        igvAPagar: 0,
+        ingresosNetos: redondeoSunat(resumen.baseVentas),
+        rentaAPagar: cuota,
+        totalAPagar: cuota,
+      },
     }
   }
 
   // ── IGV — Ventas ────────────────────────────────────
+  const c101 = tributoDeclarado(resumen.baseVentasGravadas, tasaGeneral)
   const validacion101 = validarBandaTributo(
     resumen.baseVentasGravadas,
-    resumen.igvVentasGravadas,
+    c101,
     tasaGeneral,
     { casillaBase: '100', casillaTributo: '101' }
   )
@@ -168,16 +220,19 @@ export function generarGuia0621(
   casillas.push({
     casilla: '101',
     label: 'IGV de ventas gravadas',
-    valor: redondeoSunat(resumen.igvVentasGravadas),
+    valor: c101,
     tab: 'IGV — Ventas',
     editable: true,
+    nota: notaTributo(resumen.igvVentasGravadas, c101),
     validacion: validacion101,
   })
 
+  let c155 = 0
   if (resumen.baseVentasLey31556 > 0 || resumen.igvVentasLey31556 > 0) {
+    c155 = tributoDeclarado(resumen.baseVentasLey31556, tasaLey)
     const validacion155 = validarBandaTributo(
       resumen.baseVentasLey31556,
-      resumen.igvVentasLey31556,
+      c155,
       tasaLey,
       { casillaBase: '154', casillaTributo: '155', ley31556: true }
     )
@@ -193,9 +248,10 @@ export function generarGuia0621(
     casillas.push({
       casilla: '155',
       label: 'IGV de ventas Ley N° 31556',
-      valor: redondeoSunat(resumen.igvVentasLey31556),
+      valor: c155,
       tab: 'IGV — Ventas',
       editable: true,
+      nota: notaTributo(resumen.igvVentasLey31556, c155),
       validacion: validacion155,
     })
   }
@@ -212,12 +268,15 @@ export function generarGuia0621(
   }
 
   // ── IGV — Compras ───────────────────────────────────
-  const validacion108 = validarBandaTributo(
-    resumen.baseComprasGravadas,
-    resumen.igvComprasGravadas,
-    tasaGeneral,
-    { casillaBase: '107', casillaTributo: '108' }
-  )
+  //
+  // Sin banda: la banda del 18%–18,5% vale para el **débito** fiscal, que sí es
+  // función de tu base, pero no para el crédito. El crédito es el IGV que te
+  // cargaron tus proveedores y puede quedar por debajo del 18% de la casilla
+  // 107 con todo derecho —créditos parciales, comprobantes que no se toman,
+  // redondeos de muchas facturas pequeñas—. Exigirlo aquí llevaba a declarar un
+  // sol de crédito fiscal de más, que es justo lo que no se debe hacer.
+  const c108 = redondeoSunat(resumen.igvComprasGravadas)
+  const c157 = redondeoSunat(resumen.igvComprasLey31556)
 
   casillas.push({
     casilla: '107',
@@ -230,20 +289,12 @@ export function generarGuia0621(
   casillas.push({
     casilla: '108',
     label: 'IGV de compras destinadas a ventas gravadas',
-    valor: redondeoSunat(resumen.igvComprasGravadas),
+    valor: c108,
     tab: 'IGV — Compras',
     editable: true,
-    validacion: validacion108,
   })
 
   if (resumen.baseComprasLey31556 > 0 || resumen.igvComprasLey31556 > 0) {
-    const validacion157 = validarBandaTributo(
-      resumen.baseComprasLey31556,
-      resumen.igvComprasLey31556,
-      tasaLey,
-      { casillaBase: '156', casillaTributo: '157', ley31556: true }
-    )
-
     casillas.push({
       casilla: '156',
       label: 'Compras netas destinadas a ventas gravadas Ley N° 31556',
@@ -255,10 +306,9 @@ export function generarGuia0621(
     casillas.push({
       casilla: '157',
       label: 'IGV de compras Ley N° 31556',
-      valor: redondeoSunat(resumen.igvComprasLey31556),
+      valor: c157,
       tab: 'IGV — Compras',
       editable: true,
-      validacion: validacion157,
     })
   }
 
@@ -274,13 +324,31 @@ export function generarGuia0621(
   }
 
   // ── Determinación del IGV ───────────────────────────
-  const saldoAFavorAnterior = resumen.saldoIgvMesAnterior < 0 ? Math.abs(resumen.saldoIgvMesAnterior) : 0
+  //
+  // Aquí se opera con los enteros de las casillas, no con los céntimos del
+  // resumen. SUNAT redondea primero y suma después, y por ese orden su importe
+  // a pagar puede diferir en un sol del que sale de la contabilidad exacta.
+  // Manda el de SUNAT, que es el que se acaba pagando.
+  const c145 = opts.saldoFavorAnteriorSunat != null
+    ? redondeoSunat(opts.saldoFavorAnteriorSunat)
+    : redondeoSunat(resumen.saldoIgvMesAnterior < 0 ? Math.abs(resumen.saldoIgvMesAnterior) : 0)
+  const c140 = c101 + c155 - c108 - c157
+  const c184 = c140 - c145
 
-  if (saldoAFavorAnterior > 0) {
+  casillas.push({
+    casilla: '140',
+    label: c140 >= 0 ? 'Impuesto resultante del período' : 'Saldo a favor del período',
+    valor: Math.abs(c140),
+    tab: 'Determinación',
+    editable: false,
+    nota: 'Casillas 101 y 155 menos 108 y 157, con los importes ya redondeados.',
+  })
+
+  if (c145 > 0) {
     casillas.push({
       casilla: '145',
       label: 'Saldo a favor del período anterior',
-      valor: redondeoSunat(saldoAFavorAnterior),
+      valor: c145,
       tab: 'Determinación',
       editable: true,
       nota: 'Crédito fiscal arrastrado del mes anterior.',
@@ -288,12 +356,14 @@ export function generarGuia0621(
   }
 
   casillas.push({
-    casilla: '140',
-    label: resumen.igvNetoMes > 0 ? 'IGV resultante del período' : 'Saldo a favor del período',
-    valor: redondeoSunat(resumen.igvNetoMes > 0 ? resumen.igvNetoMes : Math.abs(resumen.saldoIgvMes)),
+    casilla: '184',
+    label: c184 >= 0 ? 'Tributo a pagar (IGV)' : 'Saldo a favor que se arrastra',
+    valor: Math.abs(c184),
     tab: 'Determinación',
     editable: false,
-    nota: 'Lo calcula SUNAT a partir de las casillas anteriores; verifica que coincida.',
+    nota: c184 >= 0
+      ? 'Casilla 140 menos la 145. Es el IGV que se paga este mes.'
+      : 'No se paga IGV: este saldo pasa a la casilla 145 del mes siguiente.',
   })
 
   // ── Renta ───────────────────────────────────────────
@@ -313,14 +383,19 @@ export function generarGuia0621(
     editable: true,
     nota: opts.porcentajeRentaTexto ?? resumen.irMensual?.concepto,
   })
+  const c302 = redondeoSunat(resumen.pagoIrSugerido)
   casillas.push({
     casilla: '302',
     label: spec.irMensualDefinitivo ? 'Renta del período (definitiva)' : 'Pago a cuenta del período',
-    valor: redondeoSunat(resumen.pagoIrSugerido),
+    valor: c302,
     tab: 'Renta',
     editable: false,
     nota: 'Resulta de aplicar la casilla 315 sobre la 301.',
   })
+
+  // Casillas 189 y 307. Se devuelve aparte y no como fila: es la cifra que
+  // SUNAT enseña en la cabecera del formulario, y la guía la muestra igual.
+  const totalAPagar = Math.max(0, c184) + c302
 
   const bloqueos = casillas
     .filter(c => c.validacion && !c.validacion.ok)
@@ -331,5 +406,13 @@ export function generarGuia0621(
     aplicaFormulario0621: true,
     casillas,
     bloqueos,
+    determinacion: {
+      igvResultante: c140,
+      saldoFavorAnterior: c145,
+      igvAPagar: c184,
+      ingresosNetos: redondeoSunat(resumen.baseVentas),
+      rentaAPagar: c302,
+      totalAPagar,
+    },
   }
 }

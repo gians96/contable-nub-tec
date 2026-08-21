@@ -282,7 +282,19 @@ const meses = computed(() => {
     const saldoAnt  = Number(r.saldoIgvMesAnterior ?? 0)
     const igvNetoMs = Number(r.igvNetoMes ?? 0)
     const saldoMes  = Number(r.saldoIgvMes ?? 0)
-    const igvNeto   = igvNetoMs > 0 ? igvNetoMs : saldoMes < 0 ? saldoMes : 0
+    const igvNetoExacto = igvNetoMs > 0 ? igvNetoMs : saldoMes < 0 ? saldoMes : 0
+    const irExacto  = Number(r.pagoIrSugerido ?? 0)
+
+    /*
+     * En modo SUNAT no basta con redondear al mostrar: SUNAT redondea cada
+     * casilla y opera con esos enteros, así que su importe a pagar puede
+     * diferir en un sol del que sale de la contabilidad al céntimo. Cuando el
+     * interruptor dice «Sin decimales (SUNAT)» se enseña el número de SUNAT,
+     * que es el que se acaba pagando; con decimales, el exacto.
+     */
+    const det = r.guia?.determinacion
+    const usarSunat = rounded.value && !!det
+
     return {
       ...r,
       baseVentas:         baseV,
@@ -303,9 +315,12 @@ const meses = computed(() => {
       igvComprasLey:       Number(r.igvComprasLey31556 ?? 0),
       detraccionVentas:   Number(r.detraccionVentas ?? 0),
       detraccionCompras:  Number(r.detraccionCompras ?? 0),
-      saldoFavorAnterior: saldoAnt < 0 ? Math.abs(saldoAnt) : 0,
-      igvNeto,
-      irSugerido:            Number(r.pagoIrSugerido ?? 0),
+      saldoFavorAnterior: usarSunat ? det.saldoFavorAnterior : (saldoAnt < 0 ? Math.abs(saldoAnt) : 0),
+      igvNeto:               usarSunat ? det.igvAPagar : igvNetoExacto,
+      irSugerido:            usarSunat ? det.rentaAPagar : irExacto,
+      totalAPagar:           usarSunat
+        ? det.totalAPagar
+        : Math.max(0, igvNetoExacto) + irExacto,
       pagoIgvEfectuado:      Number(r.pagoIgvEfectuado ?? 0),
       pagoIrEfectuado:       Number(r.pagoIrEfectuado ?? 0),
       pagoTotalEfectuado:    Number(r.pagoIgvEfectuado ?? 0) + Number(r.pagoIrEfectuado ?? 0),
@@ -336,6 +351,7 @@ const totales = computed(() => {
     detraccionCompras:  m.reduce((s: number, x: any) => s + x.detraccionCompras, 0),
     igvNeto:            m.reduce((s: number, x: any) => s + (x.igvNeto > 0 ? x.igvNeto : 0), 0),
     irSugerido:         m.reduce((s: number, x: any) => s + x.irSugerido, 0),
+    totalAPagar:        m.reduce((s: number, x: any) => s + x.totalAPagar, 0),
     pagoIgv:            m.reduce((s: number, x: any) => s + x.pagoIgvEfectuado, 0),
     pagoIr:             m.reduce((s: number, x: any) => s + x.pagoIrEfectuado, 0),
     pagoTotalEfectuado: m.reduce((s: number, x: any) => s + x.pagoTotalEfectuado, 0),
@@ -466,10 +482,13 @@ const allColumns = [
     textColor: 'text-content-muted',
   },
   {
+    // Casilla 184 y no 140: la 140 es el impuesto resultante **antes** de
+    // aplicar el saldo a favor del período anterior, y esta columna ya lo
+    // descuenta. Estuvo etiquetada como 140 y no cuadraba con el formulario.
     key: 'igvNeto',
     soloConIgv: true,
-    label: 'IGV Resultante',
-    casilla: '140',
+    label: 'IGV a pagar',
+    casilla: '184',
     thBg: 'bg-blue-50 dark:bg-blue-500/10',
     tdBg: 'bg-blue-50/50 dark:bg-blue-500/10',
     textColor: 'text-blue-700 dark:text-blue-300',
@@ -491,6 +510,17 @@ const allColumns = [
     thBg: 'bg-amber-50 dark:bg-amber-500/10',
     tdBg: 'bg-amber-50/50 dark:bg-amber-500/10',
     textColor: 'text-amber-700 dark:text-amber-300',
+  },
+  {
+    // Lo que SUNAT muestra en la cabecera del formulario: IGV más renta.
+    // Sumar a ojo las dos columnas anteriores no siempre da esto, porque cada
+    // una se redondea por su cuenta.
+    key: 'totalAPagar',
+    label: 'Total a pagar',
+    casilla: '189+307',
+    thBg: 'bg-blue-100 dark:bg-blue-500/15',
+    tdBg: 'bg-blue-100/50 dark:bg-blue-500/15',
+    textColor: 'text-blue-800 dark:text-blue-200 font-semibold',
   },
   {
     key: 'pagoIgvEfectuado',
