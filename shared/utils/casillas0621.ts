@@ -376,6 +376,19 @@ export function generarGuia0621(
       : 'No se paga IGV: este saldo pasa a la casilla 145 del mes siguiente.',
   })
 
+  casillas.push({
+    casilla: '189',
+    label: 'Importe a pagar (IGV)',
+    valor: Math.max(0, c184),
+    tab: 'Determinación',
+    editable: false,
+    // Es la casilla que cambia cuando SUNAT no precarga la 145: con 0 allí pide
+    // todo el IGV del mes, y sin decirlo aquí no hay cómo cuadrar las dos cifras.
+    nota: c145 > 0 && c140 > 0
+      ? 'Con S/ ' + c145 + ' en la casilla 145. Si la dejas en 0, SUNAT te pide S/ ' + c140 + ' de IGV.'
+      : 'IGV que pagas este mes.',
+  })
+
   // ── Renta ───────────────────────────────────────────
   casillas.push({
     casilla: '301',
@@ -409,8 +422,18 @@ export function generarGuia0621(
     nota: 'Resulta de aplicar la casilla 315 sobre la 301.',
   })
 
-  // Casillas 189 y 307. Se devuelve aparte y no como fila: es la cifra que
-  // SUNAT enseña en la cabecera del formulario, y la guía la muestra igual.
+  casillas.push({
+    casilla: '307',
+    label: 'Importe a pagar (renta)',
+    valor: c302,
+    tab: 'Renta',
+    editable: false,
+    nota: 'Sin retenciones ni saldo a favor de renta, es igual a la 302.',
+  })
+
+  // Casillas 189 y 307 sumadas. Van como filas para compararlas una a una con
+  // el formulario, y el total también aparte: es la cifra que SUNAT enseña en
+  // la cabecera, y la guía la muestra igual.
   const totalAPagar = Math.max(0, c184) + c302
 
   const bloqueos = casillas

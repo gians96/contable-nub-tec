@@ -19,6 +19,9 @@
             S/ {{ formatMoneyInt(guia.determinacion.totalAPagar) }}
           </p>
           <p class="text-[11px] text-content-muted">casillas 189 + 307</p>
+          <p v-if="totalSin145 !== null" class="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+            Con la casilla 145 en 0: S/ {{ formatMoneyInt(totalSin145) }}
+          </p>
         </div>
         <select v-model.number="mesSeleccionado" class="select-field max-w-[190px]">
           <option v-for="m in mesesConDatos" :key="m.month" :value="m.month">
@@ -118,6 +121,18 @@ const props = defineProps<{
 
 const mesSeleccionado = defineModel<number>('mes', { required: true })
 const { formatMoneyInt } = useTaxCalculations()
+
+/**
+ * Lo que pide el formulario si SUNAT no precarga el saldo a favor en la 145.
+ * Es el caso en que su cabecera y la de la guía no coinciden, así que se
+ * enseñan las dos cifras juntas.
+ */
+const totalSin145 = computed(() => {
+  const det = props.guia?.determinacion
+  if (!det || det.saldoFavorAnterior <= 0) return null
+  const total = Math.max(0, det.igvResultante) + det.rentaAPagar
+  return total !== det.totalAPagar ? total : null
+})
 
 const grupos = computed(() => {
   if (!props.guia) return []

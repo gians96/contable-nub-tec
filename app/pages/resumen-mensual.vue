@@ -145,13 +145,13 @@
 
               <td v-for="col in visibleColumnDefs" :key="col.key"
                 class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums" :class="col.tdBg">
-                <!-- IGV Resultante: positivo = a pagar, negativo = saldo a favor -->
-                <template v-if="col.key === 'igvNeto'">
-                  <span :class="m.igvNeto > 0 ? 'text-blue-700 dark:text-blue-300 font-semibold' : m.igvNeto < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-content-muted/50'">
-                    {{ m.igvNeto > 0
-                      ? `S/ ${fmt(m.igvNeto)}`
-                      : m.igvNeto < 0
-                        ? `(S/ ${fmt(Math.abs(m.igvNeto))}) fav.`
+                <!-- IGV del mes (140) y resultado (184): positivo = impuesto, negativo = saldo a favor -->
+                <template v-if="col.key === 'igvNeto' || col.key === 'igvMes'">
+                  <span :class="(m as any)[col.key] > 0 ? 'text-blue-700 dark:text-blue-300 font-semibold' : (m as any)[col.key] < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-content-muted/50'">
+                    {{ (m as any)[col.key] > 0
+                      ? `S/ ${fmt((m as any)[col.key])}`
+                      : (m as any)[col.key] < 0
+                        ? `(S/ ${fmt(Math.abs((m as any)[col.key]))}) fav.`
                         : '-' }}
                   </span>
                 </template>
@@ -167,9 +167,7 @@
                 <template v-else-if="col.key === 'igvPorPagar'">
                   <span v-if="m.igvPorPagar > 0" :class="col.textColor">S/ {{ fmt(m.igvPorPagar) }}</span>
                   <span v-else-if="m.baseVentas || m.baseCompras" class="text-content-muted"
-                    :title="m.saldoFavorAnterior > 0
-                      ? `Tu saldo a favor cubre el IGV del mes. En SUNAT pon S/ ${formatMoneyInt(m.guia?.determinacion?.saldoFavorAnterior ?? m.saldoFavorAnterior)} en la casilla 145.`
-                      : 'No hay IGV por pagar este mes.'">
+                    :title="motivoSinIgv(m)">
                     S/ {{ fmt(0) }}
                   </span>
                   <span v-else class="text-content-muted/50">-</span>
@@ -273,9 +271,9 @@
               <td class="px-3 py-3 text-content-soft">TOTAL</td>
               <td v-for="col in visibleColumnDefs" :key="col.key"
                 class="px-3 py-3 text-right whitespace-nowrap tabular-nums" :class="col.tdBg">
-                <!-- Saldos que mezclan pagos y saldos a favor: sumarlos no dice nada.
-                     Lo que se pagó de IGV en el año está en «Pagar IGV». -->
-                <template v-if="col.key === 'igvNeto' || col.key === 'saldoFavorAnterior'">
+                <!-- Mezclan impuesto y saldos a favor: sumarlos no dice nada.
+                     Lo que se paga de IGV en el año está en «Pagar IGV». -->
+                <template v-if="col.key === 'igvNeto' || col.key === 'igvMes' || col.key === 'saldoFavorAnterior'">
                   <span class="text-content-muted">—</span>
                 </template>
                 <template v-else-if="col.key === 'pagoIgvEfectuado'">
@@ -413,6 +411,11 @@ const meses = computed(() => {
       detraccionCompras:  Number(r.detraccionCompras ?? 0),
       pagoConDetraccion:  Number(r.pagoConDetraccion ?? 0),
       detraccionFondoCierre: Number(r.detraccionFondoCierre ?? 0),
+      // Casilla 140: débito menos crédito del mes, antes de restar el saldo a favor anterior.
+      igvMes:                usarSunat
+        ? det.igvResultante
+        : round2(Number(r.igvVentasGravadas ?? igvV) + Number(r.igvVentasLey31556 ?? 0)
+          - Number(r.igvComprasGravadas ?? igvCf) - Number(r.igvComprasLey31556 ?? 0)),
       saldoFavorAnterior: usarSunat ? det.saldoFavorAnterior : (saldoAnt < 0 ? Math.abs(saldoAnt) : 0),
       igvNeto:               usarSunat ? det.igvAPagar : igvNetoExacto,
       // Casilla 189: el 184 cuando es positivo. Sumado a `irSugerido` da `totalAPagar`.
@@ -595,6 +598,18 @@ const allColumns = [
     soloConDetraccion: true,
   },
   {
+    // Casilla 140: el IGV del mes antes de restar el saldo a favor anterior. Es
+    // lo que SUNAT cobra si la casilla 145 queda en 0; sin esta columna no había
+    // cómo cuadrar la tabla con un formulario que no trae el saldo cargado.
+    key: 'igvMes',
+    soloConIgv: true,
+    label: 'IGV del mes',
+    casilla: '140',
+    thBg: '',
+    tdBg: '',
+    textColor: 'text-blue-700 dark:text-blue-300',
+  },
+  {
     key: 'saldoFavorAnterior',
     soloConIgv: true,
     label: 'Saldo Ant.',
@@ -741,6 +756,21 @@ const columnasDisponibles = computed(() =>
 const visibleColumnDefs = computed(() =>
   columnasDisponibles.value.filter(c => visibleCols.value.includes(c.key))
 )
+
+/**
+ * Por qué «Pagar IGV» sale en 0 y qué cobra SUNAT si no precarga la casilla
+ * 145, que es justo cuando su formulario y la tabla no coinciden.
+ */
+function motivoSinIgv(m: any): string {
+  const det = m.guia?.determinacion
+  const saldo = Number(det?.saldoFavorAnterior ?? m.saldoFavorAnterior ?? 0)
+  if (saldo <= 0) return 'No hay IGV por pagar este mes.'
+  const igvMes = Number(det?.igvResultante ?? m.igvMes ?? 0)
+  const base = `Tu saldo a favor cubre el IGV del mes. En SUNAT pon S/ ${formatMoneyInt(saldo)} en la casilla 145`
+  return igvMes > 0
+    ? `${base}; si la dejas en 0, SUNAT te cobra S/ ${formatMoneyInt(igvMes)} de IGV.`
+    : `${base}.`
+}
 
 /** El pago mensual de renta se llama distinto en cada régimen. */
 function etiqueta(col: any): string {
