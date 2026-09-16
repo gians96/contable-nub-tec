@@ -121,7 +121,8 @@ export interface Guia0621 {
 }
 
 /**
- * Débito fiscal con el que SUNAT llena la casilla del tributo.
+ * Tributo con el que SUNAT llena la casilla: débito (101, 155), crédito (108,
+ * 157) y pago a cuenta de renta (302, sobre la 301).
  *
  * **No es el redondeo del IGV exacto, es la tasa sobre la base ya redondeada.**
  * Reconstruyendo declaraciones reales, es el único criterio que reproduce lo
@@ -269,14 +270,18 @@ export function generarGuia0621(
 
   // ── IGV — Compras ───────────────────────────────────
   //
-  // Sin banda: la banda del 18%–18,5% vale para el **débito** fiscal, que sí es
-  // función de tu base, pero no para el crédito. El crédito es el IGV que te
-  // cargaron tus proveedores y puede quedar por debajo del 18% de la casilla
-  // 107 con todo derecho —créditos parciales, comprobantes que no se toman,
-  // redondeos de muchas facturas pequeñas—. Exigirlo aquí llevaba a declarar un
-  // sol de crédito fiscal de más, que es justo lo que no se debe hacer.
-  const c108 = redondeoSunat(resumen.igvComprasGravadas)
-  const c157 = redondeoSunat(resumen.igvComprasLey31556)
+  // El formulario liquida el crédito igual que el débito: la tasa sobre la base
+  // ya redondeada. Con una compra de 8,47 y un IGV de 1,53, SUNAT propone
+  // 107 = 8 y 108 = 1 (8 × 18% = 1,44), no 2, y con ese 1 opera la casilla 140.
+  // Redondear el IGV de los comprobantes dejaba el saldo a favor un sol por
+  // encima del de SUNAT, y el desfase se arrastraba a los meses siguientes.
+  //
+  // Sin banda: la del 18%–18,5% vale para el **débito** fiscal, no para el
+  // crédito, que es el IGV que te cargaron tus proveedores. Si el crédito real
+  // es menor que el propuesto, la nota lo avisa y la casilla se corrige a mano:
+  // el formulario la deja editar.
+  const c108 = tributoDeclarado(resumen.baseComprasGravadas, tasaGeneral)
+  const c157 = tributoDeclarado(resumen.baseComprasLey31556, tasaLey)
 
   casillas.push({
     casilla: '107',
@@ -292,6 +297,7 @@ export function generarGuia0621(
     valor: c108,
     tab: 'IGV — Compras',
     editable: true,
+    nota: notaTributo(resumen.igvComprasGravadas, c108),
   })
 
   if (resumen.baseComprasLey31556 > 0 || resumen.igvComprasLey31556 > 0) {
@@ -309,6 +315,7 @@ export function generarGuia0621(
       valor: c157,
       tab: 'IGV — Compras',
       editable: true,
+      nota: notaTributo(resumen.igvComprasLey31556, c157),
     })
   }
 
@@ -351,7 +358,10 @@ export function generarGuia0621(
       valor: c145,
       tab: 'Determinación',
       editable: true,
-      nota: 'Crédito fiscal arrastrado del mes anterior.',
+      // SUNAT no siempre la precarga: con 0 el formulario cobra IGV que el saldo
+      // a favor ya cubría, y el importe a pagar no cuadra con el de la app.
+      nota: 'Debe coincidir con el saldo a favor (casilla 184) que declaraste el mes anterior. ' +
+        'Si SUNAT la muestra en 0, escribe S/ ' + c145 + ': con 0 el formulario te cobra IGV que tu saldo a favor ya cubre.',
     })
   }
 
@@ -383,7 +393,13 @@ export function generarGuia0621(
     editable: true,
     nota: opts.porcentajeRentaTexto ?? resumen.irMensual?.concepto,
   })
-  const c302 = redondeoSunat(resumen.pagoIrSugerido)
+  // Como en la 312: la 301 ya redondeada por la 315 (691 × 1% = 6,91 → 7), y no
+  // el pago a cuenta al céntimo redondeado, que en el borde del medio sol se
+  // separa del de SUNAT.
+  const tasaRenta = resumen.irMensual?.tasaAplicada ?? 0
+  const c302 = tasaRenta > 0
+    ? Math.max(0, tributoDeclarado(resumen.baseVentas, tasaRenta))
+    : redondeoSunat(resumen.pagoIrSugerido)
   casillas.push({
     casilla: '302',
     label: spec.irMensualDefinitivo ? 'Renta del período (definitiva)' : 'Pago a cuenta del período',

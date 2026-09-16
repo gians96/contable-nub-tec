@@ -391,3 +391,23 @@ Cinco `deleteMany()` sin filtro. Con una empresa borraba la demo; con varias hab
 
 ### Solución
 El seed resuelve primero su empresa de demostración por RUC y acota los borrados a ella.
+
+---
+
+## BUG-016: Las columnas ocultas del resumen mensual volvían al recargar
+
+| | |
+|---|---|
+| **Estado** | 🟢 Resuelto |
+| **Severidad** | Medio |
+| **Afecta** | `app/pages/resumen-mensual.vue` |
+| **Fecha** | Septiembre 2026 |
+
+### Síntoma
+Al desmarcar columnas en «Columnas» y recargar (F5), la tabla volvía a mostrarlas todas (18/18). Lo mismo con el interruptor de decimales.
+
+### Causa
+La selección era un `ref` local inicializado con todas las columnas: no se guardaba en ningún lado. No tenía que ver con la base de datos ni con migraciones.
+
+### Solución
+Dos cookies, con el mismo patrón del tema y el sidebar (BUG-012): `cp-resumen-cols-ocultas` guarda las claves **ocultas** —así una columna nueva o condicional aparece sola— y `cp-resumen-sin-decimales` el modo. Al vivir en cookie, el servidor ya renderiza la tabla con la elección, sin parpadeo.

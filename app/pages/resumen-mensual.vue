@@ -144,7 +144,7 @@
               <td class="px-3 py-2.5 font-medium text-content-soft whitespace-nowrap">{{ MESES[m.month] }}</td>
 
               <td v-for="col in visibleColumnDefs" :key="col.key"
-                class="px-3 py-2.5 text-right" :class="col.tdBg">
+                class="px-3 py-2.5 text-right whitespace-nowrap tabular-nums" :class="col.tdBg">
                 <!-- IGV Resultante: positivo = a pagar, negativo = saldo a favor -->
                 <template v-if="col.key === 'igvNeto'">
                   <span :class="m.igvNeto > 0 ? 'text-blue-700 dark:text-blue-300 font-semibold' : m.igvNeto < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-content-muted/50'">
@@ -161,6 +161,23 @@
                   <span class="text-content-muted text-xs">
                     {{ m.saldoFavorAnterior > 0 ? `(S/ ${fmt(m.saldoFavorAnterior)}) fav.` : '-' }}
                   </span>
+                </template>
+
+                <!-- IGV que sale del bolsillo en el mes: 0 cuando el saldo a favor lo cubre -->
+                <template v-else-if="col.key === 'igvPorPagar'">
+                  <span v-if="m.igvPorPagar > 0" :class="col.textColor">S/ {{ fmt(m.igvPorPagar) }}</span>
+                  <span v-else-if="m.baseVentas || m.baseCompras" class="text-content-muted"
+                    :title="m.saldoFavorAnterior > 0
+                      ? `Tu saldo a favor cubre el IGV del mes. En SUNAT pon S/ ${formatMoneyInt(m.guia?.determinacion?.saldoFavorAnterior ?? m.saldoFavorAnterior)} en la casilla 145.`
+                      : 'No hay IGV por pagar este mes.'">
+                    S/ {{ fmt(0) }}
+                  </span>
+                  <span v-else class="text-content-muted/50">-</span>
+                  <div v-if="m.igvDeudaInicioMes > 0"
+                    class="text-[10px] font-medium text-orange-700 dark:text-orange-300"
+                    title="IGV de meses anteriores registrado como no pagado (referencial)">
+                    + S/ {{ fmt(m.igvDeudaInicioMes) }} deuda
+                  </div>
                 </template>
 
                 <!-- Pago IGV efectuado (editable) -->
@@ -255,11 +272,10 @@
             <tr class="border-t-2 border-line-strong bg-surface-raised font-semibold">
               <td class="px-3 py-3 text-content-soft">TOTAL</td>
               <td v-for="col in visibleColumnDefs" :key="col.key"
-                class="px-3 py-3 text-right" :class="col.tdBg">
-                <template v-if="col.key === 'igvNeto'">
-                  <span class="text-blue-700 dark:text-blue-300">S/ {{ fmt(totales.igvNeto) }}</span>
-                </template>
-                <template v-else-if="col.key === 'saldoFavorAnterior'">
+                class="px-3 py-3 text-right whitespace-nowrap tabular-nums" :class="col.tdBg">
+                <!-- Saldos que mezclan pagos y saldos a favor: sumarlos no dice nada.
+                     Lo que se pagó de IGV en el año está en «Pagar IGV». -->
+                <template v-if="col.key === 'igvNeto' || col.key === 'saldoFavorAnterior'">
                   <span class="text-content-muted">—</span>
                 </template>
                 <template v-else-if="col.key === 'pagoIgvEfectuado'">
@@ -294,8 +310,17 @@
 <script setup lang="ts">
 const { formatMoney, formatMoneyInt, MESES } = useTaxCalculations()
 
-/** true = sin decimales (SUNAT), false = con 2 decimales (exacto) */
-const rounded = ref(true)
+/**
+ * true = sin decimales (SUNAT), false = con 2 decimales (exacto).
+ * En cookie, como las columnas ocultas: sobrevive al F5 y el servidor ya
+ * renderiza con el modo elegido.
+ */
+const rounded = useCookie<boolean>('cp-resumen-sin-decimales', {
+  default: () => true,
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 365,
+  path: '/',
+})
 const fmt = (v: number) => rounded.value ? formatMoneyInt(v) : formatMoney(v)
 
 const currentYear = new Date().getFullYear()
@@ -354,6 +379,18 @@ const meses = computed(() => {
     const det = r.guia?.determinacion
     const usarSunat = rounded.value && !!det
 
+    /*
+     * Por la misma razón, en modo SUNAT las columnas con casilla enseñan el
+     * entero de la guía y no el importe redondeado: el IGV que declara SUNAT
+     * sale de la base redondeada (8 × 18% = 1), no del IGV de los comprobantes
+     * (1,53 → 2), y es con ese entero con el que opera la casilla 140.
+     */
+    const cas = (codigo: string, exacto: number): number => {
+      if (!usarSunat) return exacto
+      const c = r.guia?.casillas?.find((x: any) => x.casilla === codigo)
+      return c ? Number(c.valor) : exacto
+    }
+
     return {
       ...r,
       baseVentas:         baseV,
@@ -364,20 +401,22 @@ const meses = computed(() => {
       totalCompras:       baseCf + igvCf + noDed,
       // Desglose por casilla: el 18% y el 10% de la Ley 31556 se declaran por
       // separado, así que no pueden ir sumados en la misma columna.
-      baseVentasGravadas:  Number(r.baseVentasGravadas ?? baseV),
-      igvVentasGravadas:   Number(r.igvVentasGravadas ?? igvV),
-      baseVentasLey:       Number(r.baseVentasLey31556 ?? 0),
-      igvVentasLey:        Number(r.igvVentasLey31556 ?? 0),
-      baseComprasGravadas: Number(r.baseComprasGravadas ?? baseCf),
-      igvComprasGravadas:  Number(r.igvComprasGravadas ?? igvCf),
-      baseComprasLey:      Number(r.baseComprasLey31556 ?? 0),
-      igvComprasLey:       Number(r.igvComprasLey31556 ?? 0),
+      baseVentasGravadas:  cas('100', Number(r.baseVentasGravadas ?? baseV)),
+      igvVentasGravadas:   cas('101', Number(r.igvVentasGravadas ?? igvV)),
+      baseVentasLey:       cas('154', Number(r.baseVentasLey31556 ?? 0)),
+      igvVentasLey:        cas('155', Number(r.igvVentasLey31556 ?? 0)),
+      baseComprasGravadas: cas('107', Number(r.baseComprasGravadas ?? baseCf)),
+      igvComprasGravadas:  cas('108', Number(r.igvComprasGravadas ?? igvCf)),
+      baseComprasLey:      cas('156', Number(r.baseComprasLey31556 ?? 0)),
+      igvComprasLey:       cas('157', Number(r.igvComprasLey31556 ?? 0)),
       detraccionVentas:   Number(r.detraccionVentas ?? 0),
       detraccionCompras:  Number(r.detraccionCompras ?? 0),
       pagoConDetraccion:  Number(r.pagoConDetraccion ?? 0),
       detraccionFondoCierre: Number(r.detraccionFondoCierre ?? 0),
       saldoFavorAnterior: usarSunat ? det.saldoFavorAnterior : (saldoAnt < 0 ? Math.abs(saldoAnt) : 0),
       igvNeto:               usarSunat ? det.igvAPagar : igvNetoExacto,
+      // Casilla 189: el 184 cuando es positivo. Sumado a `irSugerido` da `totalAPagar`.
+      igvPorPagar:           Math.max(0, usarSunat ? det.igvAPagar : igvNetoExacto),
       irSugerido:            usarSunat ? det.rentaAPagar : irExacto,
       totalAPagar:           usarSunat
         ? det.totalAPagar
@@ -385,6 +424,7 @@ const meses = computed(() => {
       pagoIgvEfectuado:      Number(r.pagoIgvEfectuado ?? 0),
       pagoIrEfectuado:       Number(r.pagoIrEfectuado ?? 0),
       pagoTotalEfectuado:    Number(r.pagoIgvEfectuado ?? 0) + Number(r.pagoIrEfectuado ?? 0),
+      igvDeudaInicioMes:     Number(r.igvDeudaInicioMes ?? 0),
       igvDeudaCierreMes:     Number(r.igvDeudaCierreMes ?? 0),
       igvSugeridoPagoTotal:  Number(r.igvSugeridoPagoTotal ?? 0),
     }
@@ -413,7 +453,7 @@ const totales = computed(() => {
     pagoConDetraccion:  m.reduce((s: number, x: any) => s + x.pagoConDetraccion, 0),
     // El fondo es un saldo, no un flujo: el «total» del año es el de diciembre.
     detraccionFondoCierre: m.length ? Number(m[m.length - 1].detraccionFondoCierre ?? 0) : 0,
-    igvNeto:            m.reduce((s: number, x: any) => s + (x.igvNeto > 0 ? x.igvNeto : 0), 0),
+    igvPorPagar:        m.reduce((s: number, x: any) => s + x.igvPorPagar, 0),
     irSugerido:         m.reduce((s: number, x: any) => s + x.irSugerido, 0),
     totalAPagar:        m.reduce((s: number, x: any) => s + x.totalAPagar, 0),
     pagoIgv:            m.reduce((s: number, x: any) => s + x.pagoIgvEfectuado, 0),
@@ -567,9 +607,11 @@ const allColumns = [
     // Casilla 184 y no 140: la 140 es el impuesto resultante **antes** de
     // aplicar el saldo a favor del período anterior, y esta columna ya lo
     // descuenta. Estuvo etiquetada como 140 y no cuadraba con el formulario.
+    // Se llamaba «IGV a pagar», pero enseña también el saldo a favor que se
+    // arrastra: lo que se paga está en «Pagar IGV».
     key: 'igvNeto',
     soloConIgv: true,
-    label: 'IGV a pagar',
+    label: 'Resultado IGV',
     casilla: '184',
     thBg: 'bg-blue-50 dark:bg-blue-500/10',
     tdBg: 'bg-blue-50/50 dark:bg-blue-500/10',
@@ -585,18 +627,29 @@ const allColumns = [
     textColor: 'text-orange-800 dark:text-orange-200 font-medium',
   },
   {
+    // Lo que sale del bolsillo por IGV en el mes: el 184 si es positivo y 0
+    // cuando el saldo a favor lo cubre, que es justo lo que «(S/ 371) fav.» no
+    // decía.
+    key: 'igvPorPagar',
+    soloConIgv: true,
+    label: 'Pagar IGV',
+    casilla: '189',
+    thBg: 'bg-blue-50 dark:bg-blue-500/10',
+    tdBg: 'bg-blue-50/50 dark:bg-blue-500/10',
+    textColor: 'text-blue-700 dark:text-blue-300 font-semibold',
+  },
+  {
     key: 'irSugerido',
-    label: 'IR Sugerido',
-    casilla: '302',
+    label: 'Pagar IR',
+    casilla: '307',
     labelPorRegimen: { NRUS: 'Cuota NRUS', RER: 'Renta 1,5% (definitiva)' } as Record<string, string>,
     thBg: 'bg-amber-50 dark:bg-amber-500/10',
     tdBg: 'bg-amber-50/50 dark:bg-amber-500/10',
     textColor: 'text-amber-700 dark:text-amber-300',
   },
   {
-    // Lo que SUNAT muestra en la cabecera del formulario: IGV más renta.
-    // Sumar a ojo las dos columnas anteriores no siempre da esto, porque cada
-    // una se redondea por su cuenta.
+    // Lo que SUNAT muestra en la cabecera del formulario: «Pagar IGV» más
+    // «Pagar IR», ya redondeados por casilla en modo SUNAT.
     key: 'totalAPagar',
     label: 'Total a pagar',
     casilla: '189+307',
@@ -607,7 +660,7 @@ const allColumns = [
   {
     key: 'pagoIgvEfectuado',
     soloConIgv: true,
-    label: 'Pago IGV',
+    label: 'Pagado IGV',
     casilla: null,
     thBg: 'bg-green-50 dark:bg-green-500/10',
     tdBg: 'bg-green-50/50 dark:bg-green-500/10',
@@ -615,7 +668,7 @@ const allColumns = [
   },
   {
     key: 'pagoIrEfectuado',
-    label: 'Pago IR',
+    label: 'Pagado IR',
     casilla: null,
     thBg: 'bg-green-50 dark:bg-green-500/10',
     tdBg: 'bg-green-50/50 dark:bg-green-500/10',
@@ -631,13 +684,40 @@ const allColumns = [
   },
 ]
 
-const defaultVisible = allColumns.map(c => c.key)
-const visibleCols = ref<string[]>([...defaultVisible])
-function resetCols() { visibleCols.value = [...defaultVisible] }
+/*
+ * Cookie y no ref local: era un ref que arrancaba con todas las columnas, así
+ * que lo que se ocultaba volvía a aparecer al recargar. Con cookie el servidor
+ * ya dibuja la tabla sin ellas. Se guardan las **ocultas** y no las visibles,
+ * para que una columna nueva —o una condicional, como las de detracción—
+ * aparezca sola en vez de quedar escondida.
+ */
+const columnasOcultas = useCookie<string[]>('cp-resumen-cols-ocultas', {
+  default: () => [],
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 365,
+  path: '/',
+})
+const clavesColumnas = allColumns.map(c => c.key)
+const visibleCols = computed<string[]>({
+  get: () => {
+    const ocultas = Array.isArray(columnasOcultas.value) ? columnasOcultas.value : []
+    return clavesColumnas.filter(k => !ocultas.includes(k))
+  },
+  set: (visibles) => {
+    columnasOcultas.value = clavesColumnas.filter(k => !visibles.includes(k))
+  },
+})
+function resetCols() { columnasOcultas.value = [] }
 
-/** ¿Hubo alguna operación bajo la Ley 31556 en el año? */
+/**
+ * ¿Hubo alguna operación bajo la Ley 31556 en el año? Con los importes crudos:
+ * en modo SUNAT una base de céntimos redondea a 0 y la columna desaparecería
+ * al cambiar de modo.
+ */
 const hayLey31556 = computed(() =>
-  meses.value.some((m: any) => m.baseVentasLey > 0 || m.baseComprasLey > 0)
+  ((data.value?.summaries ?? []) as any[]).some(r =>
+    Number(r.baseVentasLey31556 ?? 0) > 0 || Number(r.baseComprasLey31556 ?? 0) > 0
+  )
 )
 
 /** ¿Hubo alguna operación sujeta a detracción en el año? */
